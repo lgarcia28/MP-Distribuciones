@@ -233,22 +233,9 @@ export const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Actions: "Ver Pedido" and "Panel Dueño" (Far Right) */}
+          {/* Right Actions: "Panel Dueño" and "Ver Pedido" */}
           <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-            <button
-              onClick={openCartDrawer}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              <span>Ver Pedido</span>
-              {cartCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-800 font-extrabold text-xs">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-
-            {/* Panel Dueño (Far Right Position) */}
+            {/* Panel Dueño (Left of Ver Pedido) */}
             <button
               onClick={() => {
                 if (isAdminLoggedIn) {
@@ -262,6 +249,20 @@ export const Header: React.FC = () => {
             >
               <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
               <span>Panel Dueño</span>
+            </button>
+
+            {/* Ver Pedido */}
+            <button
+              onClick={openCartDrawer}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>Ver Pedido</span>
+              {cartCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-800 font-extrabold text-xs">
+                  {cartCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
