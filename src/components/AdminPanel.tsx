@@ -1,0 +1,810 @@
+import React, { useState, useMemo, useRef } from 'react';
+import { useApp } from '../context/AppContext';
+import { Product, Category } from '../types';
+import { CATEGORIES } from '../data/categories';
+import { AdminProductModal } from './AdminProductModal';
+import {
+  Search,
+  Plus,
+  Download,
+  Upload,
+  RefreshCw,
+  LogOut,
+  Store,
+  DollarSign,
+  Boxes,
+  CheckCircle2,
+  AlertCircle,
+  Edit,
+  Trash2,
+  TrendingUp,
+  Percent,
+  X,
+  Check,
+} from 'lucide-react';
+
+export const AdminPanel: React.FC = () => {
+  const {
+    products,
+    updateStock,
+    updatePrice,
+    deleteProduct,
+    applyPercentagePriceAdjustment,
+    bulkUpdateProducts,
+    resetProductsToDefault,
+    exchangeRate,
+    openExchangeRateModal,
+    setIsAdminView,
+    logoutAdmin,
+    showToast,
+  } = useApp();
+
+  // Search & Filter state for the table
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'out_of_stock' | 'outlet'>('all');
+
+  // Modals state
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [adjustmentPercentage, setAdjustmentPercentage] = useState<number>(5);
+
+  // File upload ref for CSV import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Stats calculation
+  const totalProducts = products.length;
+  const inStockCount = products.filter((p) => p.stockQuantity > 0).length;
+  const outOfStockCount = totalProducts - inStockCount;
+  const totalInventoryUSD = products.reduce((acc, p) => acc + p.priceUSD * p.stockQuantity, 0);
+  const totalInventoryARS = totalInventoryUSD * exchangeRate;
+
+  // Filtered products list
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      // Category filter
+      if (categoryFilter !== 'ALL' && p.category !== categoryFilter) {
+        return false;
+      }
+      // Status filter
+      if (statusFilter === 'in_stock' && p.stockQuantity <= 0) return false;
+      if (statusFilter === 'out_of_stock' && p.stockQuantity > 0) return false;
+      if (statusFilter === 'outlet' && p.badge !== 'OFERTA' && p.badge !== 'MÁS VENDIDO') return false;
+
+      // Search term
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase().trim();
+        return (
+          p.name.toLowerCase().includes(q) ||
+          p.sku.toLowerCase().includes(q) ||
+          p.brand.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [products, categoryFilter, statusFilter, searchTerm]);
+
+  // Handle Export CSV
+  const handleExportCSV = () => {
+    const headers = [
+      'id',
+      'sku',
+      'name',
+      'brand',
+      'category',
+      'subcategory',
+      'priceUSD',
+      'stockQuantity',
+      'inStock',
+      'badge',
+      'imageUrl',
+      'description',
+    ];
+
+    const rows = products.map((p) => [
+      `"${p.id}"`,
+      `"${p.sku.replace(/"/g, '""')}"`,
+      `"${p.name.replace(/"/g, '""')}"`,
+      `"${p.brand.replace(/"/g, '""')}"`,
+      `"${p.category}"`,
+      `"${(p.subcategory || '').replace(/"/g, '""')}"`,
+      p.priceUSD,
+      p.stockQuantity,
+      p.inStock ? 'true' : 'false',
+      `"${p.badge || ''}"`,
+      `"${p.imageUrl}"`,
+      `"${(p.description || '').replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `catalogo_mp_distribuciones_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Catálogo exportado exitosamente a archivo CSV / Excel.', 'success');
+  };
+
+  // Handle Import CSV
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+        if (lines.length < 2) {
+          alert('El archivo CSV no contiene suficientes datos.');
+          return;
+        }
+
+        const headers = lines[0].split(',').map((h) => h.replace(/"/g, '').trim().toLowerCase());
+        const skuIdx = headers.indexOf('sku');
+        const nameIdx = headers.indexOf('name');
+        const priceIdx = headers.indexOf('priceusd');
+        const stockIdx = headers.indexOf('stockquantity');
+
+        if (skuIdx === -1 || nameIdx === -1) {
+          alert('El archivo CSV debe contener al menos las columnas "sku" y "name".');
+          return;
+        }
+
+        const updated = [...products];
+        let updatedCount = 0;
+        let createdCount = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          // Simple CSV line parser
+          const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+          if (!row) continue;
+          const cleanRow = lines[i].split(',').map((val) => val.replace(/^"|"$/g, '').trim());
+
+          const rowSku = cleanRow[skuIdx];
+          const rowName = cleanRow[nameIdx];
+          const rowPrice = priceIdx !== -1 ? parseFloat(cleanRow[priceIdx]) || 10 : 10;
+          const rowStock = stockIdx !== -1 ? parseInt(cleanRow[stockIdx]) || 0 : 0;
+
+          if (!rowSku || !rowName) continue;
+
+          const existingIndex = updated.findIndex((p) => p.sku.toLowerCase() === rowSku.toLowerCase());
+          if (existingIndex !== -1) {
+            // Update existing
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              name: rowName,
+              priceUSD: rowPrice,
+              stockQuantity: rowStock,
+              inStock: rowStock > 0,
+            };
+            updatedCount++;
+          } else {
+            // Create new
+            const newProd: Product = {
+              id: 'prod_csv_' + Date.now() + Math.random().toString(36).substring(2, 5),
+              sku: rowSku,
+              name: rowName,
+              brand: cleanRow[headers.indexOf('brand')] || 'Genérico',
+              category: (cleanRow[headers.indexOf('category')] as Category) || 'ACCESORIOS, ADAPTADORES Y CABLES',
+              subcategory: cleanRow[headers.indexOf('subcategory')] || '',
+              description: cleanRow[headers.indexOf('description')] || rowName,
+              specs: ['Garantía oficial MP Distribuciones'],
+              priceUSD: rowPrice,
+              stockQuantity: rowStock,
+              inStock: rowStock > 0,
+              badge: (cleanRow[headers.indexOf('badge')] as any) || undefined,
+              imageUrl: cleanRow[headers.indexOf('imageurl')] || 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=600&q=80',
+              minWholesaleQty: 1,
+            };
+            updated.push(newProd);
+            createdCount++;
+          }
+        }
+
+        bulkUpdateProducts(updated);
+        showToast(`Importación completada: ${updatedCount} actualizados, ${createdCount} nuevos agregados.`, 'success');
+      } catch (err) {
+        console.error(err);
+        alert('Hubo un error al leer el archivo CSV. Verifique el formato.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handleOpenEdit = (p: Product) => {
+    setProductToEdit(p);
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setProductToEdit(null);
+    setIsProductModalOpen(true);
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`¿Está seguro de eliminar "${name}" del catálogo? Esta acción no se puede deshacer.`)) {
+      deleteProduct(id);
+    }
+  };
+
+  const handleApplyAdjustment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adjustmentPercentage === 0) return;
+    if (
+      window.confirm(
+        `¿Desea aplicar un ajuste de ${adjustmentPercentage > 0 ? '+' : ''}${adjustmentPercentage}% a TODOS los ${
+          products.length
+        } productos del catálogo?`
+      )
+    ) {
+      applyPercentagePriceAdjustment(adjustmentPercentage);
+      setIsAdjustmentModalOpen(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f4f6fa] text-slate-800 pb-16">
+      {/* Admin Top Navigation Bar */}
+      <header className="sticky top-0 z-40 bg-[#07245b] text-white border-b border-blue-900 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="MP Distribuciones"
+              className="w-10 h-10 object-contain rounded-full bg-black/40 border border-white/20"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-base sm:text-lg tracking-tight">MP DISTRIBUCIONES</span>
+                <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-extrabold text-[10px] uppercase tracking-wider">
+                  Panel de Gestión
+                </span>
+              </div>
+              <p className="text-[11px] text-blue-200">
+                Sistema de Control de Stock, Precios y Carga Masiva
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setIsAdminView(false)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow transition-all"
+            >
+              <Store className="w-4 h-4" />
+              <span>Ver Catálogo Público</span>
+            </button>
+
+            <button
+              onClick={logoutAdmin}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-950/70 hover:bg-red-950 hover:text-red-300 border border-blue-800 text-blue-200 font-semibold text-xs transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Cerrar Sesión</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* KPI Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Card 1: Total Products */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-500">Total Artículos</p>
+              <h4 className="text-2xl font-black text-slate-900 mt-0.5">{totalProducts}</h4>
+              <p className="text-[11px] text-blue-600 font-medium">{CATEGORIES.length} rubros activos</p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Boxes className="w-6 h-6" />
+            </div>
+          </div>
+
+          {/* Card 2: Stock Availability */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-500">Disponibilidad Stock</p>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-2xl font-black text-emerald-700">{inStockCount}</span>
+                <span className="text-xs text-slate-400">/ {outOfStockCount} pausados</span>
+              </div>
+              <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> {Math.round((inStockCount / (totalProducts || 1)) * 100)}% con stock
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+          </div>
+
+          {/* Card 3: Inventory Valuation */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-500">Valor de Inventario</p>
+              <h4 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
+                u$s {Math.round(totalInventoryUSD).toLocaleString('es-AR')}
+              </h4>
+              <p className="text-[10px] text-slate-500 font-mono">
+                ≈ $ {Math.round(totalInventoryARS).toLocaleString('es-AR')} ARS
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <DollarSign className="w-6 h-6" />
+            </div>
+          </div>
+
+          {/* Card 4: Exchange Rate Reference */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-500">Dólar Mayorista Ref.</p>
+              <h4 className="text-2xl font-black text-blue-700 mt-0.5">${exchangeRate} ARS</h4>
+              <button
+                onClick={openExchangeRateModal}
+                className="text-[11px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+              >
+                Cambiar cotización global
+              </button>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+          </div>
+        </div>
+
+        {/* Actions Toolbar */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-black text-slate-800">Herramientas de Gestión de Catálogo</h3>
+              <p className="text-xs text-slate-500">
+                Alta de productos, actualización masiva y sincronización por Excel / CSV
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Add New Product Button */}
+              <button
+                onClick={handleOpenCreate}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Nuevo Producto</span>
+              </button>
+
+              {/* Mass Price Percentage Adjustment */}
+              <button
+                onClick={() => setIsAdjustmentModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 font-bold text-xs transition-colors cursor-pointer"
+                title="Aumentar o rebajar todos los precios en un porcentaje"
+              >
+                <Percent className="w-3.5 h-3.5 text-amber-600" />
+                <span>Ajuste Masivo %</span>
+              </button>
+
+              {/* Export to CSV / Excel */}
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs transition-colors cursor-pointer"
+                title="Descargar catálogo completo en formato CSV / Excel"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Exportar Excel / CSV</span>
+              </button>
+
+              {/* Import CSV */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+                title="Subir archivo CSV para actualizar masivamente"
+              >
+                <Upload className="w-3.5 h-3.5 text-slate-600" />
+                <span>Importar CSV</span>
+              </button>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+
+              {/* Reset to Factory Demo */}
+              <button
+                onClick={() => {
+                  if (window.confirm('¿Desea restablecer el catálogo a los datos demo de fábrica? Se perderán las modificaciones no guardadas.')) {
+                    resetProductsToDefault();
+                  }
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors"
+                title="Restablecer catálogo a valores de fábrica"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter and Search Bar for Table */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[260px] max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por código SKU, producto o marca..."
+                className="w-full pl-10 pr-9 py-2 rounded-xl bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white text-xs text-slate-800 placeholder-slate-400 outline-none"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs font-semibold text-slate-700 outline-none focus:border-blue-600"
+              >
+                <option value="ALL">Todos los Rubros ({totalProducts})</option>
+                {CATEGORIES.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.shortName}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status pills */}
+              <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                    statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Todos
+                </button>
+                <button
+                  onClick={() => setStatusFilter('in_stock')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                    statusFilter === 'in_stock' ? 'bg-white text-emerald-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Con Stock
+                </button>
+                <button
+                  onClick={() => setStatusFilter('out_of_stock')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                    statusFilter === 'out_of_stock' ? 'bg-white text-red-600 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Agotados
+                </button>
+                <button
+                  onClick={() => setStatusFilter('outlet')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                    statusFilter === 'outlet' ? 'bg-white text-blue-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Outlet / Ofertas
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+            <span>
+              Mostrando <strong className="text-slate-800 font-bold">{filteredProducts.length}</strong> artículos
+              coincidentes
+            </span>
+            <span className="text-[11px] text-slate-400">
+              💡 Tip: Podés editar el stock y el precio directamente en los casilleros de la tabla.
+            </span>
+          </div>
+        </div>
+
+        {/* Live Editable Inventory Table */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-slate-100 text-slate-600 border-b border-slate-200 uppercase font-black text-[10px] tracking-wider">
+                <th className="p-3 text-center w-14">Foto</th>
+                <th className="p-3 w-32">SKU / Marca</th>
+                <th className="p-3">Nombre del Producto & Rubro</th>
+                <th className="p-3 w-40 text-center">Stock Actual</th>
+                <th className="p-3 w-44 text-right">Precio Mayorista (USD)</th>
+                <th className="p-3 w-28 text-center">Estado</th>
+                <th className="p-3 text-center w-24">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredProducts.length > 0 ? (
+                filteredProducts.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                    {/* Thumbnail */}
+                    <td className="p-3 text-center">
+                      <div className="w-11 h-11 rounded-lg border border-slate-200 bg-white p-1 flex items-center justify-center overflow-hidden mx-auto">
+                        <img
+                          src={p.imageUrl}
+                          alt={p.name}
+                          loading="lazy"
+                          className="max-h-full max-w-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=150&q=80';
+                          }}
+                        />
+                      </div>
+                    </td>
+
+                    {/* SKU & Brand */}
+                    <td className="p-3">
+                      <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded text-[11px] border border-slate-200">
+                        {p.sku}
+                      </span>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-1">{p.brand}</p>
+                    </td>
+
+                    {/* Name & Category */}
+                    <td className="p-3">
+                      <p className="font-bold text-slate-900 line-clamp-1 leading-snug">{p.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                          {p.category}
+                        </span>
+                        {p.badge && (
+                          <span className="text-[9px] font-black uppercase text-red-700 bg-red-100 px-1.5 py-0.2 rounded">
+                            {p.badge}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Stock (Inline Editable) */}
+                    <td className="p-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={p.stockQuantity}
+                          onChange={(e) => updateStock(p.id, parseInt(e.target.value) || 0)}
+                          className={`w-16 px-2 py-1 text-center font-mono font-bold rounded-lg border text-xs outline-none transition-all ${
+                            p.stockQuantity > 0
+                              ? 'bg-slate-50 border-slate-300 focus:border-emerald-500 focus:bg-white text-slate-900'
+                              : 'bg-red-50 border-red-300 text-red-600 font-black'
+                          }`}
+                        />
+                        <span className="text-[11px] text-slate-400">un.</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-1 mt-1 text-[10px]">
+                        <button
+                          onClick={() => updateStock(p.id, p.stockQuantity + 5)}
+                          className="px-1.5 py-0.2 rounded bg-slate-100 hover:bg-slate-200 text-slate-600"
+                        >
+                          +5
+                        </button>
+                        <button
+                          onClick={() => updateStock(p.id, p.stockQuantity + 20)}
+                          className="px-1.5 py-0.2 rounded bg-slate-100 hover:bg-slate-200 text-slate-600"
+                        >
+                          +20
+                        </button>
+                        <button
+                          onClick={() => updateStock(p.id, 0)}
+                          className="px-1.5 py-0.2 rounded bg-red-50 hover:bg-red-100 text-red-600 font-bold"
+                          title="Pausar stock a 0"
+                        >
+                          0
+                        </button>
+                      </div>
+                    </td>
+
+                    {/* Price USD (Inline Editable) */}
+                    <td className="p-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-slate-400 font-mono text-xs">u$s</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={p.priceUSD}
+                          onChange={(e) => updatePrice(p.id, parseFloat(e.target.value) || 0.01)}
+                          className="w-20 px-2 py-1 text-right font-mono font-black text-xs text-slate-900 rounded-lg bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white outline-none"
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        ≈ $ {Math.round(p.priceUSD * exchangeRate).toLocaleString('es-AR')} ARS
+                      </p>
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => updateStock(p.id, p.stockQuantity > 0 ? 0 : 10)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                          p.stockQuantity > 0
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            : 'bg-red-100 text-red-700 hover:bg-red-200'
+                        }`}
+                        title="Click para alternar estado de stock"
+                      >
+                        {p.stockQuantity > 0 ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span>En Venta</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-3 h-3 text-red-600" />
+                            <span>Agotado</span>
+                          </>
+                        )}
+                      </button>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="p-3 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEdit(p)}
+                          className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors"
+                          title="Editar detalles completos"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(p.id, p.name)}
+                          className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-colors"
+                          title="Eliminar producto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-slate-500">
+                    No se encontraron productos coincidentes con los filtros seleccionados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </main>
+
+      {/* Product Creation / Edit Modal */}
+      <AdminProductModal
+        isOpen={isProductModalOpen}
+        onClose={() => setIsProductModalOpen(false)}
+        productToEdit={productToEdit}
+      />
+
+      {/* Percentage Price Adjustment Modal */}
+      {isAdjustmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div
+            className="relative w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-6 space-y-4 text-slate-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsAdjustmentModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                <Percent className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Ajuste Porcentual de Precios</h3>
+                <p className="text-xs text-slate-500">
+                  Modifica en bloque todos los precios de los {products.length} productos
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleApplyAdjustment} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Porcentaje a aplicar a todo el catálogo (%):
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.5"
+                    required
+                    value={adjustmentPercentage}
+                    onChange={(e) => setAdjustmentPercentage(parseFloat(e.target.value) || 0)}
+                    placeholder="Ej: 5 para aumentar 5%, o -5 para rebajar"
+                    className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white text-base font-mono font-bold text-slate-900 outline-none"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
+                </div>
+              </div>
+
+              {/* Quick preset buttons */}
+              <div className="space-y-1">
+                <p className="text-[11px] text-slate-500 font-semibold">Atajos habituales:</p>
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustmentPercentage(3)}
+                    className="py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
+                  >
+                    +3%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustmentPercentage(5)}
+                    className="py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
+                  >
+                    +5%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustmentPercentage(10)}
+                    className="py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700"
+                  >
+                    +10%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustmentPercentage(-5)}
+                    className="py-1 px-2 rounded-lg bg-red-50 hover:bg-red-100 text-xs font-bold text-red-700"
+                  >
+                    -5%
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
+                Atención: Esta acción modificará de forma inmediata los valores en USD de todos los productos en el catálogo de los clientes.
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustmentModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md"
+                >
+                  Aplicar Ajuste Masivo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

@@ -1,0 +1,530 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Currency, Product, CartItem, User, SortByOption, ViewMode } from '../types';
+import { PRODUCTS } from '../data/products';
+
+interface Toast {
+  id: string;
+  type: 'success' | 'info' | 'warning' | 'error';
+  message: string;
+}
+
+interface AppContextType {
+  // Currency & Exchange Rate
+  currency: Currency;
+  setCurrency: (c: Currency) => void;
+  exchangeRate: number;
+  setExchangeRate: (rate: number) => void;
+  formatPrice: (priceUSD: number, customCurrency?: Currency) => string;
+
+  // Products Management
+  products: Product[];
+  addProduct: (newProduct: Omit<Product, 'id'>) => void;
+  updateProduct: (id: string, updatedData: Partial<Product>) => void;
+  deleteProduct: (id: string) => void;
+  updateStock: (id: string, newStock: number) => void;
+  updatePrice: (id: string, newPriceUSD: number) => void;
+  applyPercentagePriceAdjustment: (percentage: number) => void;
+  bulkUpdateProducts: (updatedList: Product[]) => void;
+  resetProductsToDefault: () => void;
+
+  // Admin Session
+  isAdminLoggedIn: boolean;
+  isAdminModalOpen: boolean;
+  isAdminView: boolean;
+  openAdminModal: () => void;
+  closeAdminModal: () => void;
+  loginAdmin: (password: string) => boolean;
+  logoutAdmin: () => void;
+  setIsAdminView: (val: boolean) => void;
+
+  // Auth / B2B User
+  user: User | null;
+  login: (userData: Partial<User>) => void;
+  register: (userData: Omit<User, 'id' | 'isAuthenticated'>) => void;
+  logout: () => void;
+  isAuthModalOpen: boolean;
+  authModalTab: 'login' | 'register';
+  openAuthModal: (tab?: 'login' | 'register') => void;
+  closeAuthModal: () => void;
+
+  // Cart
+  cart: CartItem[];
+  addToCart: (product: Product, quantity?: number) => void;
+  updateCartQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  clearCart: () => void;
+  getItemQuantity: (productId: string) => number;
+  setItemQuantity: (product: Product, quantity: number) => void;
+  cartTotalUSD: number;
+  cartTotalARS: number;
+  cartCount: number;
+  isCartDrawerOpen: boolean;
+  openCartDrawer: () => void;
+  closeCartDrawer: () => void;
+
+  // Checkout
+  isCheckoutModalOpen: boolean;
+  openCheckoutModal: () => void;
+  closeCheckoutModal: () => void;
+
+  // Exchange rate modal
+  isExchangeRateModalOpen: boolean;
+  openExchangeRateModal: () => void;
+  closeExchangeRateModal: () => void;
+
+  // Product detail modal
+  selectedProduct: Product | null;
+  openProductDetail: (p: Product) => void;
+  closeProductDetail: () => void;
+
+  // View Mode & Filter state
+  viewMode: ViewMode;
+  setViewMode: (v: ViewMode) => void;
+  isOutletOnly: boolean;
+  setIsOutletOnly: (val: boolean) => void;
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  selectedCategory: string; // 'ALL' or Category
+  setSelectedCategory: (c: string) => void;
+  stockFilter: 'all' | 'in_stock';
+  setStockFilter: (f: 'all' | 'in_stock') => void;
+  sortBy: SortByOption;
+  setSortBy: (s: SortByOption) => void;
+
+  // Toasts
+  toasts: Toast[];
+  showToast: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const LOCAL_STORAGE_KEY_USER = 'mp_distribuciones_user_v1';
+const LOCAL_STORAGE_KEY_CART = 'mp_distribuciones_cart_v1';
+const LOCAL_STORAGE_KEY_CURRENCY = 'mp_distribuciones_currency_v1';
+const LOCAL_STORAGE_KEY_EXCHANGE = 'mp_distribuciones_exchange_rate_v1';
+const LOCAL_STORAGE_KEY_PRODUCTS = 'mp_distribuciones_products_v2';
+const LOCAL_STORAGE_KEY_ADMIN = 'mp_distribuciones_admin_logged_v1';
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Currency State
+  const [currency, setCurrencyState] = useState<Currency>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_CURRENCY);
+    return saved === 'USD' ? 'USD' : 'ARS';
+  });
+
+  const [exchangeRate, setExchangeRateState] = useState<number>(() => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY_EXCHANGE);
+    return saved ? Number(saved) : 1350;
+  });
+
+  const setCurrency = (c: Currency) => {
+    setCurrencyState(c);
+    localStorage.setItem(LOCAL_STORAGE_KEY_CURRENCY, c);
+  };
+
+  const setExchangeRate = (rate: number) => {
+    const safeRate = Math.max(1, rate);
+    setExchangeRateState(safeRate);
+    localStorage.setItem(LOCAL_STORAGE_KEY_EXCHANGE, safeRate.toString());
+  };
+
+  // Products State & Persistence
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PRODUCTS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return PRODUCTS;
+    } catch {
+      return PRODUCTS;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_PRODUCTS, JSON.stringify(products));
+    } catch (e) {
+      console.warn('Could not save products to localStorage:', e);
+    }
+  }, [products]);
+
+  // Admin Session
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem(LOCAL_STORAGE_KEY_ADMIN) === 'true';
+  });
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isAdminView, setIsAdminView] = useState(false);
+
+  const openAdminModal = () => setIsAdminModalOpen(true);
+  const closeAdminModal = () => setIsAdminModalOpen(false);
+
+  const loginAdmin = (password: string): boolean => {
+    const clean = password.trim();
+    if (clean === 'admin123' || clean === 'mp2026' || clean === 'admin') {
+      setIsAdminLoggedIn(true);
+      localStorage.setItem(LOCAL_STORAGE_KEY_ADMIN, 'true');
+      setIsAdminModalOpen(false);
+      setIsAdminView(true);
+      showToast('Acceso de Administrador verificado con éxito.', 'success');
+      return true;
+    } else {
+      showToast('Contraseña de administrador incorrecta.', 'error');
+      return false;
+    }
+  };
+
+  const logoutAdmin = () => {
+    setIsAdminLoggedIn(false);
+    setIsAdminView(false);
+    localStorage.removeItem(LOCAL_STORAGE_KEY_ADMIN);
+    showToast('Sesión de Administrador cerrada.', 'info');
+  };
+
+  const addProduct = (newProductData: Omit<Product, 'id'>) => {
+    const id = 'prod_' + Date.now() + Math.random().toString(36).substring(2, 6);
+    const newProduct: Product = {
+      ...newProductData,
+      id,
+      createdAt: newProductData.createdAt || new Date().toISOString(),
+    };
+    setProducts((prev) => [newProduct, ...prev]);
+    showToast(`Artículo "${newProduct.name.slice(0, 28)}..." creado exitosamente.`, 'success');
+  };
+
+  const updateProduct = (id: string, updatedData: Partial<Product>) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
+    );
+    showToast('Producto actualizado en catálogo.', 'success');
+  };
+
+  const deleteProduct = (id: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setCart((prev) => prev.filter((item) => item.product.id !== id));
+    showToast('Producto eliminado del inventario.', 'info');
+  };
+
+  const updateStock = (id: string, newStock: number) => {
+    const safeStock = Math.max(0, newStock);
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? { ...p, stockQuantity: safeStock, inStock: safeStock > 0 }
+          : p
+      )
+    );
+  };
+
+  const updatePrice = (id: string, newPriceUSD: number) => {
+    const safePrice = Math.max(0.01, newPriceUSD);
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, priceUSD: safePrice } : p))
+    );
+  };
+
+  const applyPercentagePriceAdjustment = (percentage: number) => {
+    const factor = 1 + percentage / 100;
+    setProducts((prev) =>
+      prev.map((p) => ({
+        ...p,
+        priceUSD: Number((p.priceUSD * factor).toFixed(2)),
+      }))
+    );
+    showToast(
+      `Precios actualizados un ${percentage > 0 ? '+' : ''}${percentage}% en todo el catálogo.`,
+      'success'
+    );
+  };
+
+  const bulkUpdateProducts = (updatedList: Product[]) => {
+    setProducts(updatedList);
+    showToast(`Catálogo actualizado masivamente (${updatedList.length} productos).`, 'success');
+  };
+
+  const resetProductsToDefault = () => {
+    setProducts(PRODUCTS);
+    localStorage.removeItem(LOCAL_STORAGE_KEY_PRODUCTS);
+    showToast('Catálogo restablecido a valores demo oficiales.', 'info');
+  };
+
+  // Auth State
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
+      if (saved) return JSON.parse(saved);
+      // Default session for wholesale portal as shown in user reference
+      const defaultUser: User = {
+        id: 'usr_matias',
+        businessName: 'priottimatias',
+        cuit: '20-38491204-8',
+        city: 'Rosario, Santa Fe',
+        phone: '+54 341 340-8439',
+        email: 'ventas@mpdistribuciones.com',
+        isAuthenticated: true,
+        registeredAt: new Date().toISOString(),
+      };
+      return defaultUser;
+    } catch {
+      return null;
+    }
+  });
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
+
+  const openAuthModal = (tab: 'login' | 'register' = 'login') => {
+    setAuthModalTab(tab);
+    setIsAuthModalOpen(true);
+  };
+
+  const closeAuthModal = () => setIsAuthModalOpen(false);
+
+  const login = (userData: Partial<User>) => {
+    const defaultUser: User = {
+      id: 'usr_' + Date.now(),
+      businessName: userData.businessName || 'Comercio Registrado B2B',
+      cuit: userData.cuit || '30-71458920-4',
+      city: userData.city || 'Rosario, Santa Fe',
+      phone: userData.phone || '+54 341 555-1234',
+      email: userData.email || 'cliente@mpdistribuciones.com',
+      isAuthenticated: true,
+      registeredAt: new Date().toISOString(),
+    };
+    setUser(defaultUser);
+    localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(defaultUser));
+    setIsAuthModalOpen(false);
+    showToast(`¡Bienvenido de nuevo, ${defaultUser.businessName}!`, 'success');
+  };
+
+  const register = (userData: Omit<User, 'id' | 'isAuthenticated'>) => {
+    const newUser: User = {
+      ...userData,
+      id: 'usr_' + Date.now(),
+      isAuthenticated: true,
+      registeredAt: new Date().toISOString(),
+    };
+    setUser(newUser);
+    localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(newUser));
+    setIsAuthModalOpen(false);
+    showToast(`Cuenta B2B creada con éxito. Precios mayoristas habilitados.`, 'success');
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem(LOCAL_STORAGE_KEY_USER);
+    showToast('Sesión cerrada.', 'info');
+  };
+
+  // Cart State
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_CART);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY_CART, JSON.stringify(cart));
+  }, [cart]);
+
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
+  const openCartDrawer = () => setIsCartDrawerOpen(true);
+  const closeCartDrawer = () => setIsCartDrawerOpen(false);
+
+  const addToCart = (product: Product, quantity: number = 1) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.product.id === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      }
+      return [...prev, { product, quantity: Math.max(1, quantity) }];
+    });
+
+    showToast(`Se agregó "${product.name.slice(0, 32)}..." al pedido.`, 'success');
+  };
+
+  const updateCartQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+    setCart((prev) =>
+      prev.map((item) =>
+        item.product.id === productId ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+    showToast('Producto eliminado del pedido', 'info');
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  const getItemQuantity = (productId: string): number => {
+    const item = cart.find((i) => i.product.id === productId);
+    return item ? item.quantity : 0;
+  };
+
+  const setItemQuantity = (product: Product, quantity: number) => {
+    if (quantity <= 0) {
+      setCart((prev) => prev.filter((i) => i.product.id !== product.id));
+      return;
+    }
+    setCart((prev) => {
+      const existing = prev.find((i) => i.product.id === product.id);
+      if (existing) {
+        return prev.map((i) =>
+          i.product.id === product.id ? { ...i, quantity } : i
+        );
+      }
+      return [...prev, { product, quantity }];
+    });
+  };
+
+  const cartTotalUSD = cart.reduce(
+    (sum, item) => sum + item.product.priceUSD * item.quantity,
+    0
+  );
+  const cartTotalARS = cartTotalUSD * exchangeRate;
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Formatting utility
+  const formatPrice = (priceUSD: number, customCurrency?: Currency): string => {
+    const curr = customCurrency || currency;
+    if (curr === 'USD') {
+      return `u$s ${priceUSD.toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    } else {
+      const ars = Math.round(priceUSD * exchangeRate);
+      return `$ ${ars.toLocaleString('es-AR')}`;
+    }
+  };
+
+  // Modals
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const openCheckoutModal = () => setIsCheckoutModalOpen(true);
+  const closeCheckoutModal = () => setIsCheckoutModalOpen(false);
+
+  const [isExchangeRateModalOpen, setIsExchangeRateModalOpen] = useState(false);
+  const openExchangeRateModal = () => setIsExchangeRateModalOpen(true);
+  const closeExchangeRateModal = () => setIsExchangeRateModalOpen(false);
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const openProductDetail = (p: Product) => setSelectedProduct(p);
+  const closeProductDetail = () => setSelectedProduct(null);
+
+  // View Mode & Filters
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [isOutletOnly, setIsOutletOnly] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [stockFilter, setStockFilter] = useState<'all' | 'in_stock'>('all');
+  const [sortBy, setSortBy] = useState<SortByOption>('featured');
+
+  // Toasts
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const showToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'info') => {
+    const id = 'toast_' + Date.now() + Math.random().toString(36).substring(2, 5);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+
+  return (
+    <AppContext.Provider
+      value={{
+        currency,
+        setCurrency,
+        exchangeRate,
+        setExchangeRate,
+        formatPrice,
+        products,
+        addProduct,
+        updateProduct,
+        deleteProduct,
+        updateStock,
+        updatePrice,
+        applyPercentagePriceAdjustment,
+        bulkUpdateProducts,
+        resetProductsToDefault,
+        isAdminLoggedIn,
+        isAdminModalOpen,
+        isAdminView,
+        openAdminModal,
+        closeAdminModal,
+        loginAdmin,
+        logoutAdmin,
+        setIsAdminView,
+        user,
+        login,
+        register,
+        logout,
+        isAuthModalOpen,
+        authModalTab,
+        openAuthModal,
+        closeAuthModal,
+        cart,
+        addToCart,
+        updateCartQuantity,
+        removeFromCart,
+        clearCart,
+        getItemQuantity,
+        setItemQuantity,
+        cartTotalUSD,
+        cartTotalARS,
+        cartCount,
+        isCartDrawerOpen,
+        openCartDrawer,
+        closeCartDrawer,
+        isCheckoutModalOpen,
+        openCheckoutModal,
+        closeCheckoutModal,
+        isExchangeRateModalOpen,
+        openExchangeRateModal,
+        closeExchangeRateModal,
+        selectedProduct,
+        openProductDetail,
+        closeProductDetail,
+        viewMode,
+        setViewMode,
+        isOutletOnly,
+        setIsOutletOnly,
+        searchQuery,
+        setSearchQuery,
+        selectedCategory,
+        setSelectedCategory,
+        stockFilter,
+        setStockFilter,
+        sortBy,
+        setSortBy,
+        toasts,
+        showToast,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within an AppProvider');
+  }
+  return context;
+};

@@ -1,0 +1,152 @@
+import React from 'react';
+import { Product } from '../types';
+import { useApp } from '../context/AppContext';
+import { Plus, Minus, Eye } from 'lucide-react';
+
+interface ProductListRowProps {
+  product: Product;
+}
+
+export const ProductListRow: React.FC<ProductListRowProps> = ({ product }) => {
+  const {
+    currency,
+    exchangeRate,
+    openProductDetail,
+    getItemQuantity,
+    setItemQuantity,
+  } = useApp();
+
+  const cartQuantity = getItemQuantity(product.id);
+
+  const handleIncrement = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!product.inStock) return;
+    setItemQuantity(product, cartQuantity + 1);
+  };
+
+  const handleDecrement = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (cartQuantity > 0) {
+      setItemQuantity(product, cartQuantity - 1);
+    }
+  };
+
+  const formattedPrice =
+    currency === 'USD'
+      ? `USD ${product.priceUSD.toFixed(2).replace('.', ',')}`
+      : `$ ${Math.round(product.priceUSD * exchangeRate).toLocaleString('es-AR')}`;
+
+  const subtotalPrice =
+    currency === 'USD'
+      ? `USD ${(product.priceUSD * cartQuantity).toFixed(2).replace('.', ',')}`
+      : `$ ${Math.round(product.priceUSD * exchangeRate * cartQuantity).toLocaleString('es-AR')}`;
+
+  const isSelected = cartQuantity > 0;
+
+  return (
+    <tr
+      className={`border-b border-slate-200 transition-colors ${
+        isSelected ? 'bg-blue-50/60' : 'hover:bg-slate-50'
+      }`}
+    >
+      {/* Thumbnail */}
+      <td className="p-2 sm:p-3 text-center w-14 sm:w-16">
+        <div
+          onClick={() => openProductDetail(product)}
+          className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-lg border border-slate-200 p-1 flex items-center justify-center cursor-pointer hover:border-blue-400"
+        >
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            loading="lazy"
+            className="max-h-full max-w-full object-contain"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=150&q=80';
+            }}
+          />
+        </div>
+      </td>
+
+      {/* SKU & Category */}
+      <td className="p-2 sm:p-3 text-xs">
+        <span className="font-mono text-slate-500 font-semibold">{product.sku}</span>
+        <div className="text-[11px] text-slate-400">{product.brand}</div>
+      </td>
+
+      {/* Product Name */}
+      <td className="p-2 sm:p-3">
+        <div
+          onClick={() => openProductDetail(product)}
+          className="text-xs sm:text-sm font-bold text-slate-800 hover:text-blue-600 cursor-pointer line-clamp-2"
+        >
+          {product.name.toUpperCase()}
+        </div>
+        {product.badge && (
+          <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-blue-100 text-blue-700">
+            {product.badge}
+          </span>
+        )}
+      </td>
+
+      {/* Stock */}
+      <td className="p-2 sm:p-3 text-xs text-center whitespace-nowrap">
+        <span
+          className={`font-semibold ${
+            product.inStock ? 'text-slate-700' : 'text-red-500'
+          }`}
+        >
+          {product.stockQuantity} un.
+        </span>
+      </td>
+
+      {/* Unit Price */}
+      <td className="p-2 sm:p-3 text-xs sm:text-sm font-black text-slate-900 whitespace-nowrap text-right">
+        {formattedPrice}
+      </td>
+
+      {/* Inline Stepper */}
+      <td className="p-2 sm:p-3 text-center whitespace-nowrap">
+        <div className="inline-flex items-center rounded-lg border border-emerald-400 bg-white p-0.5">
+          <button
+            onClick={handleDecrement}
+            disabled={cartQuantity === 0}
+            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+          <span className="w-8 text-center text-xs font-black text-slate-800 font-mono">
+            {cartQuantity}
+          </span>
+          <button
+            onClick={handleIncrement}
+            disabled={!product.inStock}
+            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </td>
+
+      {/* Subtotal */}
+      <td className="p-2 sm:p-3 text-xs font-bold text-slate-700 whitespace-nowrap text-right hidden sm:table-cell">
+        {cartQuantity > 0 ? (
+          <span className="text-emerald-700 font-black">{subtotalPrice}</span>
+        ) : (
+          <span className="text-slate-300">-</span>
+        )}
+      </td>
+
+      {/* Action / Detail */}
+      <td className="p-2 sm:p-3 text-center w-10">
+        <button
+          onClick={() => openProductDetail(product)}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors"
+          title="Ver detalle del producto"
+        >
+          <Eye className="w-4 h-4" />
+        </button>
+      </td>
+    </tr>
+  );
+};
