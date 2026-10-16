@@ -1,0 +1,158 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Product, Order } from '../types';
+
+const STORAGE_KEY_SUPABASE_URL = 'mp_supabase_url';
+const STORAGE_KEY_SUPABASE_KEY = 'mp_supabase_anon_key';
+
+// Read configuration from Vite env or localStorage override
+export const getSupabaseConfig = (): { url: string; key: string } => {
+  const metaEnv = (import.meta as any).env || {};
+  const envUrl = (metaEnv.VITE_SUPABASE_URL || '').trim();
+  const envKey = (metaEnv.VITE_SUPABASE_ANON_KEY || '').trim();
+  const localUrl = (typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_SUPABASE_URL) || '' : '').trim();
+  const localKey = (typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_SUPABASE_KEY) || '' : '').trim();
+
+  return {
+    url: localUrl || envUrl,
+    key: localKey || envKey,
+  };
+};
+
+export const isSupabaseConfigured = (): boolean => {
+  const { url, key } = getSupabaseConfig();
+  return (
+    Boolean(url) &&
+    Boolean(key) &&
+    url.startsWith('https://') &&
+    url.includes('supabase.co') &&
+    key.length > 20
+  );
+};
+
+let cachedClient: SupabaseClient | null = null;
+
+export const getSupabaseClient = (): SupabaseClient | null => {
+  if (cachedClient) return cachedClient;
+  const { url, key } = getSupabaseConfig();
+  if (isSupabaseConfigured()) {
+    try {
+      cachedClient = createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+        realtime: {
+          params: {
+            eventsPerSecond: 10,
+          },
+        },
+      });
+      return cachedClient;
+    } catch (e) {
+      console.warn('[Supabase] Error al inicializar cliente:', e);
+      return null;
+    }
+  }
+  return null;
+};
+
+export const saveSupabaseConfig = (url: string, key: string) => {
+  const cleanUrl = url.trim();
+  const cleanKey = key.trim();
+  localStorage.setItem(STORAGE_KEY_SUPABASE_URL, cleanUrl);
+  localStorage.setItem(STORAGE_KEY_SUPABASE_KEY, cleanKey);
+  cachedClient = null; // Reset cached client to force re-instantiation
+};
+
+export const clearSupabaseConfig = () => {
+  localStorage.removeItem(STORAGE_KEY_SUPABASE_URL);
+  localStorage.removeItem(STORAGE_KEY_SUPABASE_KEY);
+  cachedClient = null;
+};
+
+// ==========================================
+// Mappers: Product <-> Supabase DB Row
+// ==========================================
+export const productToDb = (p: Product) => {
+  return {
+    id: p.id,
+    sku: p.sku,
+    name: p.name,
+    brand: p.brand || 'Genérico',
+    category: p.category,
+    subcategory: p.subcategory || null,
+    description: p.description || '',
+    specs: p.specs || [],
+    price_usd: Number(p.priceUSD) || 0,
+    price_ars: Math.round(Number(p.priceARS) || 0),
+    price_currency: p.priceCurrency || 'ARS',
+    in_stock: Boolean(p.inStock),
+    stock_quantity: Math.max(0, Number(p.stockQuantity) || 0),
+    min_wholesale_qty: Number(p.minWholesaleQty) || 1,
+    badge: p.badge || null,
+    image_url: p.imageUrl || '',
+    created_at: p.createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+};
+
+export const dbToProduct = (row: any): Product => {
+  return {
+    id: String(row.id),
+    sku: String(row.sku),
+    name: String(row.name),
+    brand: String(row.brand || 'Genérico'),
+    category: row.category,
+    subcategory: row.subcategory || undefined,
+    description: row.description || '',
+    specs: Array.isArray(row.specs) ? row.specs : [],
+    priceUSD: Number(row.price_usd) || 0,
+    priceARS: Number(row.price_ars) || undefined,
+    priceCurrency: row.price_currency === 'USD' ? 'USD' : 'ARS',
+    inStock: Boolean(row.in_stock),
+    stockQuantity: Number(row.stock_quantity) || 0,
+    minWholesaleQty: Number(row.min_wholesale_qty) || 1,
+    badge: row.badge || undefined,
+    imageUrl: row.image_url || 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=600&q=80',
+    createdAt: row.created_at || new Date().toISOString(),
+  };
+};
+
+// ==========================================
+// Mappers: Order <-> Supabase DB Row
+// ==========================================
+export const orderToDb = (o: Order) => {
+  return {
+    id: o.id,
+    order_number: o.orderNumber,
+    user_id: o.userId || null,
+    user_business_name: o.userBusinessName || '',
+    shipping_address: o.shippingAddress || '',
+    notes: o.notes || '',
+    items: o.items || [],
+    total_usd: Number(o.totalUSD) || 0,
+    total_ars: Math.round(Number(o.totalARS) || 0),
+    delivery_method: o.deliveryMethod || 'retiro',
+    invoice_type: o.invoiceType || 'B',
+    status: o.status || 'enviado',
+    date: o.date || new Date().toISOString(),
+  };
+};
+
+export const dbToOrder = (row: any): Order => {
+  return {
+    id: String(row.id),
+    orderNumber: String(row.order_number),
+    userId: row.user_id || undefined,
+    userBusinessName: row.user_business_name || row.customer_name || 'Comercio B2B',
+    shippingAddress: row.shipping_address || undefined,
+    notes: row.notes || undefined,
+    items: Array.isArray(row.items) ? row.items : [],
+    totalUSD: Number(row.total_usd) || 0,
+    totalARS: Number(row.total_ars) || 0,
+    deliveryMethod: row.delivery_method || 'retiro',
+    invoiceType: row.invoice_type || 'B',
+    status: row.status === 'en_preparacion' || row.status === 'completado' ? row.status : 'enviado',
+    date: row.date || new Date().toISOString(),
+  };
+};

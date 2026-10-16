@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Product, Category } from '../types';
 import { CATEGORIES } from '../data/categories';
 import { AdminProductModal } from './AdminProductModal';
+import { SupabaseModal } from './SupabaseModal';
 import * as XLSX from 'xlsx';
 import { exportStockCatalog } from '../utils/exportUtils';
 import {
@@ -26,6 +27,7 @@ import {
   ChevronDown,
   FileSpreadsheet,
   FileText,
+  Database,
 } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
@@ -42,6 +44,7 @@ export const AdminPanel: React.FC = () => {
     setIsAdminView,
     logoutAdmin,
     showToast,
+    isSupabaseConnected,
   } = useApp();
 
   // Search & Filter state for the table
@@ -55,6 +58,7 @@ export const AdminPanel: React.FC = () => {
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [adjustmentPercentage, setAdjustmentPercentage] = useState<number>(5);
   const [priceDisplayMode, setPriceDisplayMode] = useState<'AUTO' | 'ARS' | 'USD'>('AUTO');
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
   // File upload ref for CSV / XLSX import
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -316,6 +320,24 @@ export const AdminPanel: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Supabase Cloud Connection Status Button */}
+            <button
+              onClick={() => setIsSupabaseModalOpen(true)}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                isSupabaseConnected
+                  ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border-emerald-400/40 shadow-sm'
+                  : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border-amber-400/40'
+              }`}
+              title="Configuración de base de datos Supabase Cloud (sincronización en tiempo real)"
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-300" />
+              <span className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="hidden sm:inline">{isSupabaseConnected ? 'Supabase Cloud Activo' : 'Conectar Supabase'}</span>
+                <span className="sm:hidden">{isSupabaseConnected ? 'Cloud' : 'Conectar'}</span>
+              </span>
+            </button>
+
             <button
               onClick={() => setIsAdminView(false)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow transition-all"
@@ -486,6 +508,21 @@ export const AdminPanel: React.FC = () => {
               >
                 <Upload className="w-3.5 h-3.5 text-slate-600" />
                 <span>Importar Excel / CSV</span>
+              </button>
+
+              {/* Supabase Cloud Sync Button */}
+              <button
+                type="button"
+                onClick={() => setIsSupabaseModalOpen(true)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border font-bold text-xs transition-colors cursor-pointer ${
+                  isSupabaseConnected
+                    ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800'
+                    : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800'
+                }`}
+                title="Configuración de base de datos Supabase y sincronización en tiempo real"
+              >
+                <Database className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{isSupabaseConnected ? 'Supabase Cloud' : 'Conectar Supabase'}</span>
               </button>
 
               {/* Hidden file input */}
@@ -1012,6 +1049,12 @@ export const AdminPanel: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Supabase Cloud Configuration Modal */}
+      <SupabaseModal
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
+      />
     </div>
   );
 };

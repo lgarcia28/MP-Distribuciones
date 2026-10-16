@@ -1,6 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Currency, Product, CartItem, User, SortByOption, ViewMode, Order } from '../types';
 import { PRODUCTS } from '../data/products';
+import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+  productToDb,
+  dbToProduct,
+  orderToDb,
+  dbToOrder,
+  saveSupabaseConfig,
+} from '../lib/supabase';
 
 interface Toast {
   id: string;
@@ -102,6 +111,13 @@ interface AppContextType {
   sortBy: SortByOption;
   setSortBy: (s: SortByOption) => void;
 
+  // Supabase Cloud Sync
+  isSupabaseConnected: boolean;
+  isSyncingSupabase: boolean;
+  syncWithSupabase: () => Promise<void>;
+  uploadAllToSupabase: () => Promise<void>;
+  updateSupabaseCredentials: (url: string, key: string) => Promise<boolean>;
+
   // Toasts
   toasts: Toast[];
   showToast: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
@@ -118,6 +134,16 @@ const LOCAL_STORAGE_KEY_ADMIN = 'mp_distribuciones_admin_logged_v1';
 const LOCAL_STORAGE_KEY_ORDERS = 'mp_distribuciones_orders_v1';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Toasts
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const showToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'info') => {
+    const id = 'toast_' + Date.now() + Math.random().toString(36).substring(2, 5);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+
   // Currency State
   const [currency, setCurrencyState] = useState<Currency>(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY_CURRENCY);
@@ -284,19 +310,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setProducts((prev) => [newProduct, ...prev]);
     showToast(`Artículo "${newProduct.name.slice(0, 28)}..." creado exitosamente.`, 'success');
+
+    // Supabase Cloud Persist
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('products')
+        .insert([productToDb(newProduct)])
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Add Product Error]:', error);
+        });
+    }
   };
 
   const updateProduct = (id: string, updatedData: Partial<Product>) => {
+    let targetUpdated: Product | null = null;
     setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updatedData } : p))
+      prev.map((p) => {
+        if (p.id === id) {
+          targetUpdated = { ...p, ...updatedData };
+          return targetUpdated;
+        }
+        return p;
+      })
     );
     showToast('Producto actualizado en catálogo.', 'success');
+
+    const client = getSupabaseClient();
+    if (client && targetUpdated) {
+      client
+        .from('products')
+        .upsert(productToDb(targetUpdated))
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Update Product Error]:', error);
+        });
+    }
   };
 
   const deleteProduct = (id: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
     setCart((prev) => prev.filter((item) => item.product.id !== id));
     showToast('Producto eliminado del inventario.', 'info');
+
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('products')
+        .delete()
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Delete Product Error]:', error);
+        });
+    }
   };
 
   const updateStock = (id: string, newStock: number) => {
@@ -308,64 +373,132 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : p
       )
     );
+
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('products')
+        .update({
+          stock_quantity: safeStock,
+          in_stock: safeStock > 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Update Stock Error]:', error);
+        });
+    }
   };
 
   const updatePrice = (id: string, newPrice: number, priceCurrency: 'USD' | 'ARS' = 'USD') => {
     const safePrice = Math.max(0.01, newPrice);
+    let safeUSD = 0;
+    let safeARS = 0;
+    let actualCurrency: 'USD' | 'ARS' = priceCurrency;
+
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
         if (priceCurrency === 'ARS') {
-          const safeARS = Math.round(safePrice);
+          safeARS = Math.round(safePrice);
+          safeUSD = Number((safeARS / exchangeRate).toFixed(2));
+          actualCurrency = 'ARS';
           return {
             ...p,
             priceARS: safeARS,
-            priceUSD: Number((safeARS / exchangeRate).toFixed(2)),
+            priceUSD: safeUSD,
             priceCurrency: 'ARS',
           };
         } else {
-          const safeUSD = Number(safePrice.toFixed(2));
+          safeUSD = Number(safePrice.toFixed(2));
+          safeARS = Math.round(safeUSD * exchangeRate);
+          actualCurrency = 'USD';
           return {
             ...p,
             priceUSD: safeUSD,
-            priceARS: Math.round(safeUSD * exchangeRate),
+            priceARS: safeARS,
             priceCurrency: 'USD',
           };
         }
       })
     );
+
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('products')
+        .update({
+          price_usd: safeUSD,
+          price_ars: safeARS,
+          price_currency: actualCurrency,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Update Price Error]:', error);
+        });
+    }
   };
 
   const applyPercentagePriceAdjustment = (percentage: number) => {
     const factor = 1 + percentage / 100;
-    setProducts((prev) =>
-      prev.map((p) => {
-        const newUSD = Number((p.priceUSD * factor).toFixed(2));
-        const newARS = p.priceARS
-          ? Math.round(p.priceARS * factor)
-          : Math.round(newUSD * exchangeRate);
-        return {
-          ...p,
-          priceUSD: newUSD,
-          priceARS: newARS,
-        };
-      })
-    );
+    const updatedList = products.map((p) => {
+      const newUSD = Number((p.priceUSD * factor).toFixed(2));
+      const newARS = p.priceARS
+        ? Math.round(p.priceARS * factor)
+        : Math.round(newUSD * exchangeRate);
+      return {
+        ...p,
+        priceUSD: newUSD,
+        priceARS: newARS,
+      };
+    });
+    setProducts(updatedList);
     showToast(
       `Precios actualizados un ${percentage > 0 ? '+' : ''}${percentage}% en todo el catálogo.`,
       'success'
     );
+
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('products')
+        .upsert(updatedList.map(productToDb))
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Mass Price Adjustment Error]:', error);
+        });
+    }
   };
 
   const bulkUpdateProducts = (updatedList: Product[]) => {
     setProducts(updatedList);
     showToast(`Catálogo actualizado masivamente (${updatedList.length} productos).`, 'success');
+
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('products')
+        .upsert(updatedList.map(productToDb))
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Bulk Upsert Error]:', error);
+        });
+    }
   };
 
   const resetProductsToDefault = () => {
     setProducts(PRODUCTS);
     localStorage.removeItem(LOCAL_STORAGE_KEY_PRODUCTS);
     showToast('Catálogo restablecido a valores demo oficiales.', 'info');
+
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('products')
+        .upsert(PRODUCTS.map(productToDb))
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Reset Default Error]:', error);
+        });
+    }
   };
 
   // Auth State
@@ -589,6 +722,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'enviado',
     };
     setOrders((prev) => [newOrder, ...prev]);
+
+    // Supabase Cloud Persist
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('orders')
+        .insert([orderToDb(newOrder)])
+        .then(({ error }) => {
+          if (error) console.error('[Supabase Create Order Error]:', error);
+        });
+    }
+
     return newOrder;
   };
 
@@ -605,6 +750,192 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsCartDrawerOpen(true);
     showToast(`Se cargaron los artículos del pedido #${order.orderNumber} a tu carrito.`, 'success');
   };
+
+  // ========================================================
+  // Supabase Cloud Synchronization & Realtime Sync
+  // ========================================================
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState<boolean>(() => isSupabaseConfigured());
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState<boolean>(false);
+
+  // Sync products and orders from Supabase
+  const syncWithSupabase = async () => {
+    if (!isSupabaseConfigured()) {
+      setIsSupabaseConnected(false);
+      return;
+    }
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    setIsSyncingSupabase(true);
+    try {
+      // 1. Fetch products
+      const { data: dbProducts, error: prodErr } = await client
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (prodErr) {
+        console.error('[Supabase Sync Products Error]:', prodErr);
+      } else if (dbProducts) {
+        if (dbProducts.length === 0) {
+          // Si la base en Supabase está vacía, subimos el catálogo local
+          console.log('[Supabase Sync] Base vacía, auto-sembrando catálogo inicial...');
+          await uploadAllToSupabase();
+        } else {
+          const mapped = dbProducts.map(dbToProduct);
+          setProducts(mapped);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_PRODUCTS, JSON.stringify(mapped));
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      // 2. Fetch orders
+      const { data: dbOrders, error: ordErr } = await client
+        .from('orders')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (!ordErr && dbOrders && dbOrders.length > 0) {
+        const mappedOrders = dbOrders.map(dbToOrder);
+        setOrders(mappedOrders);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(mappedOrders));
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      setIsSupabaseConnected(true);
+      showToast('Catálogo sincronizado con Supabase Cloud.', 'success');
+    } catch (err: any) {
+      console.error('[Supabase Sync Error]:', err);
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
+  // Upload full local catalog to Supabase
+  const uploadAllToSupabase = async () => {
+    const client = getSupabaseClient();
+    if (!client) {
+      showToast('Supabase no está configurado aún.', 'warning');
+      return;
+    }
+    setIsSyncingSupabase(true);
+    try {
+      const rows = products.map(productToDb);
+      const { error } = await client.from('products').upsert(rows, { onConflict: 'id' });
+      if (error) throw error;
+      setIsSupabaseConnected(true);
+      showToast(`¡Se subieron ${rows.length} productos a Supabase Cloud exitosamente!`, 'success');
+    } catch (err: any) {
+      console.error('[Supabase Upload Error]:', err);
+      showToast('Error al subir catálogo a Supabase: ' + err.message, 'error');
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
+  // Update credentials and test connection
+  const updateSupabaseCredentials = async (newUrl: string, newKey: string): Promise<boolean> => {
+    saveSupabaseConfig(newUrl, newKey);
+    const client = getSupabaseClient();
+    if (!client) {
+      showToast('Credenciales de Supabase incompletas o inválidas.', 'error');
+      return false;
+    }
+
+    try {
+      const { error } = await client.from('products').select('id').limit(1);
+      if (error && error.code !== 'PGRST116') {
+        if (error.message.includes('relation "public.products" does not exist')) {
+          showToast('Conectado a Supabase. Falta crear las tablas (ejecutá supabase-schema.sql).', 'warning');
+          setIsSupabaseConnected(true);
+          return true;
+        }
+        showToast('Error de conexión con Supabase: ' + error.message, 'error');
+        return false;
+      }
+      setIsSupabaseConnected(true);
+      showToast('¡Conectado exitosamente con Supabase Cloud!', 'success');
+      await syncWithSupabase();
+      return true;
+    } catch (err: any) {
+      showToast('Error de red al conectar con Supabase: ' + (err.message || 'Error desconocido'), 'error');
+      return false;
+    }
+  };
+
+  // Realtime Supabase Subscription
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setIsSupabaseConnected(false);
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    // Primer sync al cargar
+    syncWithSupabase();
+
+    // Suscripción Realtime a cambios en products y orders
+    const channel = client
+      .channel('mp_catalog_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newProd = dbToProduct(payload.new);
+            setProducts((prev) => {
+              if (prev.some((p) => p.id === newProd.id)) {
+                return prev.map((p) => (p.id === newProd.id ? newProd : p));
+              }
+              return [newProd, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = dbToProduct(payload.new);
+            setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = String(payload.old?.id);
+            if (deletedId) {
+              setProducts((prev) => prev.filter((p) => p.id !== deletedId));
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newOrder = dbToOrder(payload.new);
+            setOrders((prev) => {
+              if (prev.some((o) => o.id === newOrder.id)) return prev;
+              return [newOrder, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = dbToOrder(payload.new);
+            setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsSupabaseConnected(true);
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setIsSupabaseConnected(false);
+        }
+      });
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, []);
 
   // Modals
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -626,16 +957,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [stockFilter, setStockFilter] = useState<'all' | 'in_stock'>('all');
   const [sortBy, setSortBy] = useState<SortByOption>('featured');
-
-  // Toasts
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const showToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'info') => {
-    const id = 'toast_' + Date.now() + Math.random().toString(36).substring(2, 5);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  };
 
   return (
     <AppContext.Provider
@@ -715,6 +1036,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSortBy,
         toasts,
         showToast,
+        isSupabaseConnected,
+        isSyncingSupabase,
+        syncWithSupabase,
+        uploadAllToSupabase,
+        updateSupabaseCredentials,
       }}
     >
       {children}
