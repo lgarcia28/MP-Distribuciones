@@ -1,8 +1,10 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Product, Category } from '../types';
 import { CATEGORIES } from '../data/categories';
 import { AdminProductModal } from './AdminProductModal';
+import * as XLSX from 'xlsx';
+import { exportStockCatalog } from '../utils/exportUtils';
 import {
   Search,
   Plus,
@@ -21,6 +23,9 @@ import {
   Percent,
   X,
   Check,
+  ChevronDown,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
@@ -51,8 +56,20 @@ export const AdminPanel: React.FC = () => {
   const [adjustmentPercentage, setAdjustmentPercentage] = useState<number>(5);
   const [priceEditCurrency, setPriceEditCurrency] = useState<'USD' | 'ARS'>('USD');
 
-  // File upload ref for CSV import
+  // File upload ref for CSV / XLSX import
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Stats calculation
   const totalProducts = products.length;
@@ -87,139 +104,92 @@ export const AdminPanel: React.FC = () => {
     });
   }, [products, categoryFilter, statusFilter, searchTerm]);
 
-  // Handle Export CSV
-  const handleExportCSV = () => {
-    const headers = [
-      'id',
-      'sku',
-      'name',
-      'brand',
-      'category',
-      'subcategory',
-      'priceUSD',
-      'priceARS',
-      'priceCurrency',
-      'stockQuantity',
-      'inStock',
-      'badge',
-      'imageUrl',
-      'description',
-    ];
-
-    const rows = products.map((p) => [
-      `"${p.id}"`,
-      `"${p.sku.replace(/"/g, '""')}"`,
-      `"${p.name.replace(/"/g, '""')}"`,
-      `"${p.brand.replace(/"/g, '""')}"`,
-      `"${p.category}"`,
-      `"${(p.subcategory || '').replace(/"/g, '""')}"`,
-      p.priceUSD,
-      p.priceARS || Math.round(p.priceUSD * exchangeRate),
-      `"${p.priceCurrency || 'USD'}"`,
-      p.stockQuantity,
-      p.inStock ? 'true' : 'false',
-      `"${p.badge || ''}"`,
-      `"${p.imageUrl}"`,
-      `"${(p.description || '').replace(/"/g, '""')}"`,
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `catalogo_mp_distribuciones_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Catálogo exportado exitosamente a archivo CSV / Excel.', 'success');
+  // Handle Export (XLSX or CSV)
+  const handleExport = (format: 'xlsx' | 'csv') => {
+    exportStockCatalog(products, exchangeRate, format);
+    setIsExportMenuOpen(false);
+    showToast(
+      `Catálogo de stock exportado exitosamente en formato ${format === 'xlsx' ? 'Excel (.xlsx)' : 'CSV (.csv)'}.`,
+      'success'
+    );
   };
 
-  // Handle Import CSV
+  // Handle Import (XLSX, XLS or CSV)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const parseCSVLine = (text: string, delimiter: string): string[] => {
-      const result: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        if (char === '"') {
-          if (inQuotes && text[i + 1] === '"') {
-            current += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === delimiter && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      result.push(current.trim());
-      return result;
-    };
-
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const text = event.target?.result as string;
-        const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
-        if (lines.length < 2) {
-          showToast('El archivo CSV no contiene suficientes datos.', 'warning');
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+          showToast('El archivo no contiene ninguna hoja con datos.', 'warning');
+          return;
+        }
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        if (rawRows.length === 0) {
+          showToast('El archivo no contiene filas de datos.', 'warning');
           return;
         }
 
-        // Detectar si el delimitador es punto y coma (Excel en español) o coma
-        const headerLine = lines[0];
-        const delimiter =
-          headerLine.split(';').length > headerLine.split(',').length ? ';' : ',';
+        const sampleRow = rawRows[0];
+        const rowKeys = Object.keys(sampleRow);
+        const findKey = (candidates: string[]) => {
+          return rowKeys.find((k) => candidates.includes(k.trim().toLowerCase()));
+        };
 
-        const headers = parseCSVLine(headerLine, delimiter).map((h) =>
-          h.replace(/"/g, '').trim().toLowerCase()
-        );
-        const skuIdx = headers.indexOf('sku');
-        const nameIdx = headers.indexOf('name');
-        const priceIdx = headers.indexOf('priceusd');
-        const priceArsIdx = headers.indexOf('pricears');
-        const priceCurrencyIdx = headers.indexOf('pricecurrency');
-        const stockIdx = headers.indexOf('stockquantity');
+        const skuKey = findKey(['sku', 'código sku', 'codigo sku', 'código', 'codigo', 'id']);
+        const nameKey = findKey(['name', 'nombre', 'producto', 'artículo', 'articulo', 'nombre del producto']);
 
-        if (skuIdx === -1 || nameIdx === -1) {
-          showToast('El archivo CSV debe contener al menos las columnas "sku" y "name".', 'error');
+        if (!skuKey || !nameKey) {
+          showToast('El archivo debe contener al menos las columnas "sku" y "name" (o Producto).', 'error');
           return;
         }
+
+        const brandKey = findKey(['brand', 'marca']);
+        const categoryKey = findKey(['category', 'rubro', 'categoría', 'categoria']);
+        const subcategoryKey = findKey(['subcategory', 'subrubro', 'subcategoría', 'subcategoria']);
+        const priceUsdKey = findKey(['priceusd', 'precio usd', 'precio u$s', 'usd']);
+        const priceArsKey = findKey(['pricears', 'precio ars', 'precio pesos', 'ars']);
+        const priceCurrencyKey = findKey(['pricecurrency', 'moneda', 'moneda base']);
+        const stockKey = findKey(['stockquantity', 'stock', 'cantidad', 'stock mayorista', 'stock disponible']);
+        const badgeKey = findKey(['badge', 'etiqueta']);
+        const imageKey = findKey(['imageurl', 'imagen', 'foto', 'url foto']);
+        const descKey = findKey(['description', 'descripción', 'descripcion']);
 
         const updated = [...products];
         let updatedCount = 0;
         let createdCount = 0;
 
-        for (let i = 1; i < lines.length; i++) {
-          const cleanRow = parseCSVLine(lines[i], delimiter);
-          if (cleanRow.length < 2) continue;
-
-          const rowSku = cleanRow[skuIdx];
-          const rowName = cleanRow[nameIdx];
+        for (const row of rawRows) {
+          const rowSku = String(row[skuKey] || '').trim();
+          const rowName = String(row[nameKey] || '').trim();
           if (!rowSku || !rowName) continue;
 
           // Parse currency & prices
-          const rawCurrency = priceCurrencyIdx !== -1 ? (cleanRow[priceCurrencyIdx] || '').toUpperCase() : '';
-          const rowPriceCurrency: 'USD' | 'ARS' = rawCurrency === 'ARS' ? 'ARS' : 'USD';
+          const rawCurrency = priceCurrencyKey ? String(row[priceCurrencyKey] || '').toUpperCase() : '';
+          const rowPriceCurrency: 'USD' | 'ARS' =
+            rawCurrency.includes('ARS') || rawCurrency.includes('PESO') ? 'ARS' : 'USD';
 
           let rowPriceUSD = 10;
           let rowPriceARS: number | undefined = undefined;
 
-          if (priceArsIdx !== -1 && cleanRow[priceArsIdx]) {
-            const rawArs = cleanRow[priceArsIdx].replace('$', '').replace(/\s/g, '').replace(',', '.');
+          if (priceArsKey && row[priceArsKey] !== '') {
+            const rawArs = String(row[priceArsKey]).replace('$', '').replace(/\s/g, '').replace(',', '.');
             rowPriceARS = Math.round(parseFloat(rawArs) || 0);
           }
 
-          if (priceIdx !== -1 && cleanRow[priceIdx]) {
-            const rawPrice = cleanRow[priceIdx].replace('$', '').replace(/\s/g, '').replace(',', '.');
+          if (priceUsdKey && row[priceUsdKey] !== '') {
+            const rawPrice = String(row[priceUsdKey])
+              .replace('$', '')
+              .replace(/u\$s/i, '')
+              .replace(/\s/g, '')
+              .replace(',', '.');
             rowPriceUSD = parseFloat(rawPrice) || 10;
           }
 
@@ -229,7 +199,7 @@ export const AdminPanel: React.FC = () => {
             rowPriceARS = Math.round(rowPriceUSD * exchangeRate);
           }
 
-          const rawStock = stockIdx !== -1 ? cleanRow[stockIdx] || '0' : '0';
+          const rawStock = stockKey ? String(row[stockKey]) : '0';
           const rowStock = Math.max(0, parseInt(rawStock, 10) || 0);
 
           const existingIndex = updated.findIndex((p) => p.sku.toLowerCase() === rowSku.toLowerCase());
@@ -248,21 +218,23 @@ export const AdminPanel: React.FC = () => {
           } else {
             // Create new
             const newProd: Product = {
-              id: 'prod_csv_' + Date.now() + Math.random().toString(36).substring(2, 5),
+              id: 'prod_imp_' + Date.now() + Math.random().toString(36).substring(2, 5),
               sku: rowSku,
               name: rowName,
-              brand: cleanRow[headers.indexOf('brand')] || 'Genérico',
-              category: (cleanRow[headers.indexOf('category')] as Category) || 'ACCESORIOS, ADAPTADORES Y CABLES',
-              subcategory: cleanRow[headers.indexOf('subcategory')] || '',
-              description: cleanRow[headers.indexOf('description')] || rowName,
+              brand: (brandKey && String(row[brandKey])) || 'Genérico',
+              category: ((categoryKey && String(row[categoryKey])) as Category) || 'ACCESORIOS, ADAPTADORES Y CABLES',
+              subcategory: (subcategoryKey && String(row[subcategoryKey])) || '',
+              description: (descKey && String(row[descKey])) || rowName,
               specs: ['Garantía oficial MP Distribuciones'],
               priceUSD: rowPriceUSD,
               priceARS: rowPriceARS,
               priceCurrency: rowPriceCurrency,
               stockQuantity: rowStock,
               inStock: rowStock > 0,
-              badge: (cleanRow[headers.indexOf('badge')] as any) || undefined,
-              imageUrl: cleanRow[headers.indexOf('imageurl')] || 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=600&q=80',
+              badge: (badgeKey && (row[badgeKey] as any)) || undefined,
+              imageUrl:
+                (imageKey && String(row[imageKey])) ||
+                'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=600&q=80',
               minWholesaleQty: 1,
               createdAt: new Date().toISOString(),
             };
@@ -272,13 +244,16 @@ export const AdminPanel: React.FC = () => {
         }
 
         bulkUpdateProducts(updated);
-        showToast(`Importación completada: ${updatedCount} actualizados, ${createdCount} nuevos agregados.`, 'success');
+        showToast(
+          `Importación completada: ${updatedCount} actualizados, ${createdCount} nuevos agregados.`,
+          'success'
+        );
       } catch (err) {
         console.error(err);
-        showToast('Hubo un error al leer el archivo CSV. Verifique el formato.', 'error');
+        showToast('Hubo un error al leer el archivo Excel / CSV. Verifique el formato.', 'error');
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
     // Reset input
     e.target.value = '';
   };
@@ -455,31 +430,67 @@ export const AdminPanel: React.FC = () => {
                 <span>Ajuste Masivo %</span>
               </button>
 
-              {/* Export to CSV / Excel */}
-              <button
-                onClick={handleExportCSV}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs transition-colors cursor-pointer"
-                title="Descargar catálogo completo en formato CSV / Excel"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Exportar Excel / CSV</span>
-              </button>
+              {/* Export Stock Dropdown (XLSX / CSV) */}
+              <div className="relative inline-block" ref={exportMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs transition-colors cursor-pointer"
+                  title="Descargar catálogo completo en formato Excel (.xlsx) o CSV"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Exportar Stock</span>
+                  <ChevronDown className="w-3 h-3 text-emerald-700" />
+                </button>
 
-              {/* Import CSV */}
+                {isExportMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-56 bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-fadeIn">
+                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 flex items-center justify-between">
+                      <span>Exportar Inventario</span>
+                      <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">{products.length} Artículos</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleExport('xlsx')}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors text-left cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-bold">Excel (.xlsx)</div>
+                        <span className="text-[10px] text-slate-400 font-normal">Con formato para Microsoft Excel</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport('csv')}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-left cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                      <div>
+                        <div className="font-bold">CSV (.csv)</div>
+                        <span className="text-[10px] text-slate-400 font-normal">Compatible con ERP y sistemas</span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Import Excel / CSV */}
               <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
-                title="Subir archivo CSV para actualizar masivamente"
+                title="Subir archivo Excel (.xlsx, .xls) o CSV para actualizar masivamente"
               >
                 <Upload className="w-3.5 h-3.5 text-slate-600" />
-                <span>Importar CSV</span>
+                <span>Importar Excel / CSV</span>
               </button>
 
               {/* Hidden file input */}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv, .xlsx, .xls"
                 onChange={handleFileChange}
                 className="hidden"
               />

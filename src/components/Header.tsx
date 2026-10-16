@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Search,
@@ -8,7 +8,11 @@ import {
   Settings2,
   X,
   ShieldCheck,
+  ChevronDown,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
+import { exportPriceList } from '../utils/exportUtils';
 
 export const Header: React.FC = () => {
   const {
@@ -35,37 +39,18 @@ export const Header: React.FC = () => {
   } = useApp();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isPriceListMenuOpen, setIsPriceListMenuOpen] = useState(false);
+  const priceListMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleDownloadPriceList = () => {
-    const headers = [
-      'Código SKU',
-      'Producto',
-      'Marca',
-      'Rubro',
-      'Precio USD',
-      `Precio ARS (T.C. $${exchangeRate})`,
-      'Stock Disponible',
-    ];
-    const rows = products.map((p) => [
-      `"${p.sku}"`,
-      `"${p.name.replace(/"/g, '""')}"`,
-      `"${p.brand}"`,
-      `"${p.category}"`,
-      `"u$s ${p.priceUSD.toFixed(2)}"`,
-      `"$ ${Math.round(p.priceUSD * exchangeRate).toLocaleString('es-AR')}"`,
-      p.stockQuantity,
-    ]);
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `lista_de_precios_mp_distribuciones_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Lista de precios mayorista descargada con éxito.', 'success');
-  };
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (priceListMenuRef.current && !priceListMenuRef.current.contains(e.target as Node)) {
+        setIsPriceListMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 w-full shadow-md">
@@ -241,14 +226,54 @@ export const Header: React.FC = () => {
             >
               Historial
             </button>
-            <span className="text-blue-400 hidden sm:inline">|</span>
-            <button
-              onClick={handleDownloadPriceList}
-              className="hover:text-white transition-colors hidden sm:inline cursor-pointer"
-              title="Descargar lista de precios mayorista en formato Excel / CSV"
-            >
-              Lista de Precios
-            </button>
+            {/* Price List Export Dropdown (XLSX / CSV) */}
+            <div className="relative inline-block" ref={priceListMenuRef}>
+              <button
+                onClick={() => setIsPriceListMenuOpen((prev) => !prev)}
+                className="hover:text-white transition-colors hidden sm:inline-flex items-center gap-1 cursor-pointer font-medium"
+                title="Descargar lista de precios mayorista en formato Excel (.xlsx) o CSV"
+              >
+                <span>Lista de Precios</span>
+                <ChevronDown className="w-3 h-3 text-blue-300" />
+              </button>
+
+              {isPriceListMenuOpen && (
+                <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-52 bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-fadeIn">
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 flex items-center justify-between">
+                    <span>Exportar Precios</span>
+                    <span className="text-[9px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded">T.C. ${exchangeRate}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      exportPriceList(products, exchangeRate, 'xlsx');
+                      setIsPriceListMenuOpen(false);
+                      showToast('Lista de precios exportada exitosamente en Excel (.xlsx)', 'success');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors text-left cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <div className="font-bold">Excel (.xlsx)</div>
+                      <span className="text-[10px] text-slate-400 font-normal">Recomendado para Office</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      exportPriceList(products, exchangeRate, 'csv');
+                      setIsPriceListMenuOpen(false);
+                      showToast('Lista de precios exportada exitosamente en CSV (.csv)', 'success');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors text-left cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                    <div>
+                      <div className="font-bold">CSV (.csv)</div>
+                      <span className="text-[10px] text-slate-400 font-normal">Para sistemas y ERP</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
             <span className="text-blue-400 hidden sm:inline">|</span>
             <span className="text-blue-300 hidden md:inline">Importación Directa</span>
             <span className="text-blue-400">|</span>
