@@ -29,15 +29,15 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ onOpenMobileFilters })
     (isOutletOnly ? 1 : 0);
 
   return (
-    <div className="w-full bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-3.5 shadow-xs">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+    <div className="w-full bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 p-2 sm:p-3.5 shadow-xs">
+      <div className="flex items-center justify-between gap-2">
         {/* Left Side: View Mode [ LISTADO ] [ GALERIA DE FOTOS ] + Mobile Filters Trigger */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Mobile Filter Button (Visible on screens < lg) */}
           {onOpenMobileFilters && (
             <button
               onClick={onOpenMobileFilters}
-              className="lg:hidden flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
+              className="lg:hidden flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer shrink-0"
             >
               <Filter className="w-3.5 h-3.5" />
               <span>Filtros</span>
@@ -50,35 +50,37 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ onOpenMobileFilters })
           )}
 
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200">
+          <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-full bg-slate-100 border border-slate-200">
             <button
               onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'list'
                   ? 'bg-white text-blue-700 shadow-xs border border-slate-200 font-black'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
+              title="Vista en lista detallada"
             >
               <List className="w-3.5 h-3.5" />
-              <span>LISTADO</span>
+              <span className="hidden sm:inline">LISTADO</span>
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 viewMode === 'grid'
                   ? 'bg-white text-blue-700 shadow-xs border border-slate-200 font-black'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
+              title="Vista en galería de fotos"
             >
               <Grid className="w-3.5 h-3.5" />
-              <span>GALERIA DE FOTOS</span>
+              <span className="hidden sm:inline">GALERIA</span>
             </button>
           </div>
         </div>
 
         {/* Right Side: Sorting Controls */}
-        <div className="flex items-center gap-2 sm:gap-2.5 text-xs justify-end">
-          <div className="flex items-center gap-1.5 text-slate-700 font-bold">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 text-xs justify-end shrink-0">
+          <div className="hidden sm:flex items-center gap-1.5 text-slate-700 font-bold">
             <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
             <span>Ordenar</span>
           </div>

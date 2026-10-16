@@ -133,8 +133,8 @@ export const AppContent: React.FC = () => {
       <Header />
 
       {/* Main Layout Area: Left Vertical Filters + Right Products Catalog */}
-      <main className="flex-1 max-w-[1550px] w-full mx-auto px-3 sm:px-4 py-4 sm:py-6">
-        <div className="flex flex-col lg:flex-row gap-5 items-start">
+      <main className="flex-1 max-w-[1550px] w-full mx-auto px-2 sm:px-4 py-2 sm:py-6">
+        <div className="flex flex-col lg:flex-row gap-3 sm:gap-5 items-start">
           {/* Left Vertical Filters Sidebar */}
           <SidebarFilters
             isMobileOpen={isMobileFiltersOpen}
@@ -142,12 +142,12 @@ export const AppContent: React.FC = () => {
           />
 
           {/* Right Main Catalog Content */}
-          <div className="flex-1 w-full min-w-0 space-y-4">
+          <div className="flex-1 w-full min-w-0 space-y-2 sm:space-y-4">
             {/* Top Toolbar: View Switcher & Sorting Controls */}
             <CategoryNav onOpenMobileFilters={() => setIsMobileFiltersOpen(true)} />
 
             {/* Breadcrumb & Filter status row */}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pb-1 border-b border-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] sm:text-xs text-slate-500 pb-0.5 sm:pb-1 border-b border-slate-200">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-slate-400">Catálogo</span>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
