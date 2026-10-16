@@ -27,9 +27,7 @@ export const Header: React.FC = () => {
     openCartDrawer,
     searchQuery,
     setSearchQuery,
-    selectedCategory,
     setSelectedCategory,
-    isOutletOnly,
     setIsOutletOnly,
     showToast,
     products,
@@ -115,9 +113,18 @@ export const Header: React.FC = () => {
       {/* Main Brand Bar (Vibrant MP Royal Blue) */}
       <div className="w-full bg-[#0052cc] text-white px-4 py-2.5 sm:py-3 border-b border-blue-600/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          {/* Logo & Main Nav Tabs */}
+          {/* Logo Brand Button */}
           <div className="flex items-center gap-4 sm:gap-6">
-            <a href="#" className="flex items-center gap-2.5 group shrink-0">
+            <button
+              onClick={() => {
+                setSelectedCategory('ALL');
+                setIsOutletOnly(false);
+                setSearchQuery('');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center gap-2.5 group shrink-0 text-left cursor-pointer"
+              title="MP Distribuciones - Volver al Inicio"
+            >
               <img
                 src="/logo.png"
                 alt="MP Distribuciones"
@@ -131,24 +138,7 @@ export const Header: React.FC = () => {
                   Mayorista Informática B2B
                 </span>
               </div>
-            </a>
-
-            {/* Nav Tabs */}
-            <nav className="hidden md:flex items-center gap-1.5 text-sm font-medium">
-              <button
-                onClick={() => {
-                  setSelectedCategory('ALL');
-                  setIsOutletOnly(false);
-                }}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                  selectedCategory === 'ALL' && !isOutletOnly
-                    ? 'bg-white/20 text-white font-bold'
-                    : 'text-blue-100 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                Inicio
-              </button>
-            </nav>
+            </button>
           </div>
 
           {/* Search Bar in Header */}
@@ -202,35 +192,11 @@ export const Header: React.FC = () => {
 
             <span className="text-blue-400">|</span>
 
-            {/* Quick utility links */}
-            <button
-              onClick={() => {
-                setSelectedCategory('ALL');
-                setIsOutletOnly(false);
-              }}
-              className="hover:text-white transition-colors"
-            >
-              Inicio
-            </button>
-            <span className="text-blue-400">|</span>
-            <button
-              onClick={() => openAuthModal('register')}
-              className="hover:text-white transition-colors"
-            >
-              Datos
-            </button>
-            <span className="text-blue-400">|</span>
-            <button
-              onClick={() => showToast('Historial disponible con cuenta B2B activa.', 'info')}
-              className="hover:text-white transition-colors hidden sm:inline"
-            >
-              Historial
-            </button>
             {/* Price List Export Dropdown (XLSX / CSV) */}
             <div className="relative inline-block" ref={priceListMenuRef}>
               <button
                 onClick={() => setIsPriceListMenuOpen((prev) => !prev)}
-                className="hover:text-white transition-colors hidden sm:inline-flex items-center gap-1 cursor-pointer font-medium"
+                className="hover:text-white transition-colors inline-flex items-center gap-1 cursor-pointer font-medium"
                 title="Descargar lista de precios mayorista en formato Excel (.xlsx) o CSV"
               >
                 <span>Lista de Precios</span>
@@ -274,8 +240,7 @@ export const Header: React.FC = () => {
                 </div>
               )}
             </div>
-            <span className="text-blue-400 hidden sm:inline">|</span>
-            <span className="text-blue-300 hidden md:inline">Importación Directa</span>
+
             <span className="text-blue-400">|</span>
 
             {/* Admin / Owner Panel Button */}
