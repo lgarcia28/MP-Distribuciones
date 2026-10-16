@@ -50,41 +50,8 @@ export const Header: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 w-full shadow-md">
-      {/* Top Utility Ribbon (Desktop Only) */}
-      <div className="w-full bg-[#07245b] text-blue-100 text-[11px] py-1 px-4 border-b border-blue-900/50 hidden sm:block">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-4 flex-wrap">
-            <span className="flex items-center gap-1.5 text-blue-200">
-              <MapPin className="w-3.5 h-3.5 text-blue-400" />
-              <span>Casa Central: <strong>San Nicolás 2277</strong>, Rosario, Santa Fe</span>
-            </span>
-            <span className="hidden sm:inline text-blue-700">|</span>
-            <a
-              href="https://wa.me/5493413408439"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-emerald-300 hover:text-emerald-200 transition-colors"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>WhatsApp Ventas: <strong>+54 9 341 340-8439</strong></span>
-            </a>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Automatic Banco Nación Exchange Rate Indicator */}
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-blue-900/60 text-blue-200 text-[11px] border border-blue-700/50"
-              title="Cotización oficial Banco Nación sincronizada automáticamente"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Dólar BNA Oficial: <strong>${exchangeRate.toLocaleString('es-AR')} ARS</strong></span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Brand Bar (Vibrant MP Royal Blue - Compact on Mobile) */}
-      <div className="w-full bg-[#0052cc] text-white px-3 sm:px-4 py-1.5 sm:py-2.5 border-b border-blue-600/40">
+      {/* LINE 1: Main Brand Bar (Vibrant MP Royal Blue) */}
+      <div className="w-full bg-[#0052cc] text-white px-3 sm:px-4 py-2 sm:py-2.5 border-b border-blue-600/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo Brand Button */}
           <button
@@ -94,7 +61,7 @@ export const Header: React.FC = () => {
               setSearchQuery('');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className="flex items-center gap-1.5 sm:gap-2.5 group shrink-0 text-left cursor-pointer"
+            className="flex items-center gap-2 group shrink-0 text-left cursor-pointer"
             title="MP Distribuciones - Volver al Inicio"
           >
             <img
@@ -113,15 +80,15 @@ export const Header: React.FC = () => {
             </div>
           </button>
 
-          {/* Unified Search Bar - Always Available in Main Row */}
-          <div className="flex-1 max-w-xs sm:max-w-md relative mx-1 sm:mx-2">
-            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-200" />
+          {/* Unified Search Bar */}
+          <div className="flex-1 max-w-xs sm:max-w-md lg:max-w-xl relative mx-1 sm:mx-3">
+            <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-200" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar en catálogo..."
-              className="w-full pl-8 sm:pl-9 pr-7 sm:pr-8 py-1 sm:py-1.5 rounded-lg bg-blue-700/60 focus:bg-white focus:text-slate-900 border border-blue-400/40 text-xs text-white placeholder-blue-200 focus:placeholder-slate-400 outline-none transition-all shadow-inner"
+              placeholder="Buscar producto, marca, código SKU..."
+              className="w-full pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 rounded-lg bg-blue-700/60 focus:bg-white focus:text-slate-900 border border-blue-400/40 text-xs text-white placeholder-blue-200 focus:placeholder-slate-400 outline-none transition-all shadow-inner"
             />
             {searchQuery && (
               <button
@@ -133,28 +100,47 @@ export const Header: React.FC = () => {
             )}
           </div>
 
-          {/* Cart Drawer Trigger */}
-          <button
-            onClick={openCartDrawer}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all active:scale-95 shrink-0 cursor-pointer"
-            title="Ver Carrito de Pedido"
-          >
-            <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden md:inline">Ver Pedido</span>
-            {cartCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-800 font-extrabold text-[10px] sm:text-xs">
-                {cartCount}
-              </span>
-            )}
-          </button>
+          {/* Actions: Panel Dueño (Left of Ver Pedido) & Ver Pedido */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Panel Dueño (Desktop: placed to the left of Ver Pedido) */}
+            <button
+              onClick={() => {
+                if (isAdminLoggedIn) {
+                  setIsAdminView(true);
+                } else {
+                  openAdminModal();
+                }
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300/40 font-bold text-amber-300 hover:text-white transition-all cursor-pointer shadow-xs text-xs"
+              title="Panel de gestión de stock y precios exclusivo para el dueño"
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <span>Panel Dueño</span>
+            </button>
+
+            {/* Ver Pedido */}
+            <button
+              onClick={openCartDrawer}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all active:scale-95 shrink-0 cursor-pointer"
+              title="Ver Carrito de Pedido"
+            >
+              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Ver Pedido</span>
+              {cartCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-white text-emerald-800 font-extrabold text-[10px] sm:text-xs">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Sub Bar (Sleek Single Row on Mobile) */}
-      <div className="w-full bg-[#082c71] text-white px-3 sm:px-4 py-1 border-b border-blue-950/40">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 text-[11px] sm:text-xs overflow-x-auto no-scrollbar whitespace-nowrap">
-          {/* User Status / Navigation Links */}
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0 text-blue-100">
+      {/* LINE 2: Secondary Utility & Navigation Bar */}
+      <div className="w-full bg-[#07245b] text-white px-3 sm:px-4 py-1 sm:py-1.5 border-b border-blue-950/50">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-[11px] sm:text-xs">
+          {/* Left: User status, Historial, Lista Precios (and Mobile Panel Dueño) */}
+          <div className="flex items-center gap-2 sm:gap-3 text-blue-100 overflow-x-auto no-scrollbar whitespace-nowrap">
             <span className="flex items-center gap-1 font-medium">
               <span>Hola,</span>
               {user ? (
@@ -180,7 +166,7 @@ export const Header: React.FC = () => {
               </span>
             </span>
 
-            <span className="text-blue-400">|</span>
+            <span className="text-blue-400/60">|</span>
 
             {/* Order History Button (Historial) */}
             <button
@@ -194,11 +180,11 @@ export const Header: React.FC = () => {
               className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer font-medium"
               title="Ver historial de pedidos y repetir compras"
             >
-              <History className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-300" />
+              <History className="w-3.5 h-3.5 text-blue-300" />
               <span>Historial</span>
             </button>
 
-            <span className="text-blue-400">|</span>
+            <span className="text-blue-400/60">|</span>
 
             {/* Price List Export Dropdown (XLSX / CSV) */}
             <div className="relative inline-block" ref={priceListMenuRef}>
@@ -248,10 +234,9 @@ export const Header: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Right Actions: Panel Dueño */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            {/* Mobile-only Panel Dueño button */}
+            <span className="sm:hidden text-blue-400/60">|</span>
             <button
               onClick={() => {
                 if (isAdminLoggedIn) {
@@ -260,12 +245,42 @@ export const Header: React.FC = () => {
                   openAdminModal();
                 }
               }}
-              className="flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300/40 font-bold text-amber-300 hover:text-white transition-all cursor-pointer text-[10px] sm:text-xs"
-              title="Panel de gestión de stock y precios exclusivo para el dueño"
+              className="sm:hidden flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-400/20 text-amber-300 font-bold text-[10px]"
             >
-              <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
-              <span>Panel Dueño</span>
+              <ShieldCheck className="w-3 h-3 text-amber-400" />
+              <span>Dueño</span>
             </button>
+          </div>
+
+          {/* Right: Contact & BNA Dollar info (Visible on Desktop / PC) */}
+          <div className="hidden md:flex items-center gap-3 shrink-0 text-blue-200 text-[11px]">
+            <span className="flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-blue-400" />
+              <span>San Nicolás 2277, Rosario</span>
+            </span>
+
+            <span className="text-blue-400/60">|</span>
+
+            <a
+              href="https://wa.me/5493413408439"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-emerald-300 hover:text-emerald-200 transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span>WhatsApp: <strong>+54 9 341 340-8439</strong></span>
+            </a>
+
+            <span className="text-blue-400/60">|</span>
+
+            {/* Automatic Banco Nación Exchange Rate Indicator */}
+            <div
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-900/60 text-blue-100 text-[11px] border border-blue-700/50"
+              title="Cotización oficial Banco Nación sincronizada automáticamente"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Dólar BNA: <strong>${exchangeRate.toLocaleString('es-AR')} ARS</strong></span>
+            </div>
           </div>
         </div>
       </div>
