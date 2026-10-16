@@ -143,20 +143,31 @@ export const CartDrawer: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between mt-1.5">
-                        {/* Stepper */}
                         <div className="flex items-center rounded-lg border border-emerald-400 bg-white p-0.5">
                           <button
                             onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
-                            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 transition-colors font-bold"
+                            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 transition-colors font-bold cursor-pointer"
+                            title="Disminuir cantidad"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="w-7 text-center text-xs font-mono font-black text-slate-800">
-                            {item.quantity}
-                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={item.product.stockQuantity}
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              updateCartQuantity(item.product.id, isNaN(val) ? 1 : val);
+                            }}
+                            className="w-10 text-center text-xs font-mono font-black text-slate-800 bg-transparent outline-none focus:bg-emerald-50 rounded"
+                            title="Cantidad"
+                          />
                           <button
                             onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
-                            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 transition-colors font-bold"
+                            disabled={item.quantity >= item.product.stockQuantity}
+                            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold cursor-pointer"
+                            title={item.quantity >= item.product.stockQuantity ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
                           >
                             <Plus className="w-3 h-3" />
                           </button>

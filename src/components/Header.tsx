@@ -67,6 +67,37 @@ export const Header: React.FC = () => {
     showToast('Cambiando a vista de Listado Completo / Checklist', 'info');
   };
 
+  const handleDownloadPriceList = () => {
+    const headers = [
+      'Código SKU',
+      'Producto',
+      'Marca',
+      'Rubro',
+      'Precio USD',
+      `Precio ARS (T.C. $${exchangeRate})`,
+      'Stock Disponible',
+    ];
+    const rows = products.map((p) => [
+      `"${p.sku}"`,
+      `"${p.name.replace(/"/g, '""')}"`,
+      `"${p.brand}"`,
+      `"${p.category}"`,
+      `"u$s ${p.priceUSD.toFixed(2)}"`,
+      `"$ ${Math.round(p.priceUSD * exchangeRate).toLocaleString('es-AR')}"`,
+      p.stockQuantity,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `lista_de_precios_mp_distribuciones_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Lista de precios mayorista descargada con éxito.', 'success');
+  };
+
   return (
     <header className="sticky top-0 z-40 w-full shadow-md">
       {/* Top Utility Ribbon */}
@@ -325,10 +356,11 @@ export const Header: React.FC = () => {
             </button>
             <span className="text-blue-400 hidden sm:inline">|</span>
             <button
-              onClick={openExchangeRateModal}
-              className="hover:text-white transition-colors hidden sm:inline"
+              onClick={handleDownloadPriceList}
+              className="hover:text-white transition-colors hidden sm:inline cursor-pointer"
+              title="Descargar lista de precios mayorista en formato Excel / CSV"
             >
-              Precios
+              Lista de Precios
             </button>
             <span className="text-blue-400 hidden sm:inline">|</span>
             <span className="text-blue-300 hidden md:inline">Importación Directa</span>

@@ -68,12 +68,12 @@ export const CheckoutModal: React.FC = () => {
 
   const handleSendWhatsApp = () => {
     if (!buyerName || !cuit || !phone) {
-      alert('Por favor verifique que Nombre, CUIT y Teléfono estén completos.');
+      showToast('Por favor verifique que Nombre, CUIT y Teléfono estén completos.', 'warning');
       return;
     }
 
     if (cart.length === 0) {
-      alert('El pedido no contiene productos.');
+      showToast('El pedido no contiene productos.', 'warning');
       return;
     }
 
@@ -106,7 +106,7 @@ export const CheckoutModal: React.FC = () => {
       `*DETALLE DEL PEDIDO:*\n` +
       `${itemsLines}\n` +
       `------------------------------------\n` +
-      `💰 *TOTAL ESTIMADO:* ${currency === 'USD' ? 'USD ' : 'ARS '}${currentTotal}\n` +
+      `💰 *TOTAL ESTIMADO:* ${currentTotal}\n` +
       (currency === 'USD' ? `*(Cotización de ref: $${exchangeRate} ARS/USD)*\n` : '') +
       `💬 *Solicito confirmación de stock y datos de cuenta para transferencia.*`;
 

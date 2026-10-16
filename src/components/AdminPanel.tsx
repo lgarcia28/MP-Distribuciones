@@ -135,24 +135,55 @@ export const AdminPanel: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const parseCSVLine = (text: string, delimiter: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"') {
+          if (inQuotes && text[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === delimiter && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const text = event.target?.result as string;
         const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
         if (lines.length < 2) {
-          alert('El archivo CSV no contiene suficientes datos.');
+          showToast('El archivo CSV no contiene suficientes datos.', 'warning');
           return;
         }
 
-        const headers = lines[0].split(',').map((h) => h.replace(/"/g, '').trim().toLowerCase());
+        // Detectar si el delimitador es punto y coma (Excel en español) o coma
+        const headerLine = lines[0];
+        const delimiter =
+          headerLine.split(';').length > headerLine.split(',').length ? ';' : ',';
+
+        const headers = parseCSVLine(headerLine, delimiter).map((h) =>
+          h.replace(/"/g, '').trim().toLowerCase()
+        );
         const skuIdx = headers.indexOf('sku');
         const nameIdx = headers.indexOf('name');
         const priceIdx = headers.indexOf('priceusd');
         const stockIdx = headers.indexOf('stockquantity');
 
         if (skuIdx === -1 || nameIdx === -1) {
-          alert('El archivo CSV debe contener al menos las columnas "sku" y "name".');
+          showToast('El archivo CSV debe contener al menos las columnas "sku" y "name".', 'error');
           return;
         }
 
@@ -161,17 +192,20 @@ export const AdminPanel: React.FC = () => {
         let createdCount = 0;
 
         for (let i = 1; i < lines.length; i++) {
-          // Simple CSV line parser
-          const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-          if (!row) continue;
-          const cleanRow = lines[i].split(',').map((val) => val.replace(/^"|"$/g, '').trim());
+          const cleanRow = parseCSVLine(lines[i], delimiter);
+          if (cleanRow.length < 2) continue;
 
           const rowSku = cleanRow[skuIdx];
           const rowName = cleanRow[nameIdx];
-          const rowPrice = priceIdx !== -1 ? parseFloat(cleanRow[priceIdx]) || 10 : 10;
-          const rowStock = stockIdx !== -1 ? parseInt(cleanRow[stockIdx]) || 0 : 0;
-
           if (!rowSku || !rowName) continue;
+
+          // Normalizar precio soportando coma decimal (ej. 12,50)
+          const rawPrice = priceIdx !== -1 ? cleanRow[priceIdx] || '' : '10';
+          const normalizedPrice = rawPrice.replace('$', '').replace(/\s/g, '').replace(',', '.');
+          const rowPrice = parseFloat(normalizedPrice) || 10;
+
+          const rawStock = stockIdx !== -1 ? cleanRow[stockIdx] || '0' : '0';
+          const rowStock = Math.max(0, parseInt(rawStock, 10) || 0);
 
           const existingIndex = updated.findIndex((p) => p.sku.toLowerCase() === rowSku.toLowerCase());
           if (existingIndex !== -1) {
@@ -201,6 +235,7 @@ export const AdminPanel: React.FC = () => {
               badge: (cleanRow[headers.indexOf('badge')] as any) || undefined,
               imageUrl: cleanRow[headers.indexOf('imageurl')] || 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=600&q=80',
               minWholesaleQty: 1,
+              createdAt: new Date().toISOString(),
             };
             updated.push(newProd);
             createdCount++;
@@ -211,7 +246,7 @@ export const AdminPanel: React.FC = () => {
         showToast(`Importación completada: ${updatedCount} actualizados, ${createdCount} nuevos agregados.`, 'success');
       } catch (err) {
         console.error(err);
-        alert('Hubo un error al leer el archivo CSV. Verifique el formato.');
+        showToast('Hubo un error al leer el archivo CSV. Verifique el formato.', 'error');
       }
     };
     reader.readAsText(file);

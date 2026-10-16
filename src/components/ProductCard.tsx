@@ -20,7 +20,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!product.inStock) return;
+    if (!product.inStock || cartQuantity >= product.stockQuantity) return;
     setItemQuantity(product, cartQuantity + 1);
   };
 
@@ -138,15 +138,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               <Minus className="w-4 h-4 stroke-[3]" />
             </button>
 
-            <span className="text-sm font-black text-slate-800 font-mono w-10 text-center select-none">
-              {cartQuantity}
-            </span>
+            <input
+              type="number"
+              min="0"
+              max={product.stockQuantity}
+              value={cartQuantity === 0 ? '0' : cartQuantity}
+              disabled={!product.inStock}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                setItemQuantity(product, isNaN(val) ? 0 : val);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="text-sm font-black text-slate-800 font-mono w-12 text-center bg-transparent outline-none focus:bg-emerald-50 rounded"
+              title="Cantidad a pedir"
+            />
 
             <button
               onClick={handleIncrement}
-              disabled={!product.inStock}
-              className="w-7 h-7 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors font-bold"
-              title="Aumentar cantidad al pedido"
+              disabled={!product.inStock || cartQuantity >= product.stockQuantity}
+              className="w-7 h-7 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors font-bold cursor-pointer"
+              title={cartQuantity >= product.stockQuantity ? 'Stock máximo alcanzado' : 'Aumentar cantidad al pedido'}
             >
               <Plus className="w-4 h-4 stroke-[3]" />
             </button>

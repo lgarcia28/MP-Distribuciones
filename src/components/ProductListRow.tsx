@@ -20,7 +20,7 @@ export const ProductListRow: React.FC<ProductListRowProps> = ({ product }) => {
 
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!product.inStock) return;
+    if (!product.inStock || cartQuantity >= product.stockQuantity) return;
     setItemQuantity(product, cartQuantity + 1);
   };
 
@@ -111,17 +111,30 @@ export const ProductListRow: React.FC<ProductListRowProps> = ({ product }) => {
           <button
             onClick={handleDecrement}
             disabled={cartQuantity === 0}
-            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold"
+            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold cursor-pointer"
+            title="Disminuir cantidad"
           >
             <Minus className="w-3.5 h-3.5" />
           </button>
-          <span className="w-8 text-center text-xs font-black text-slate-800 font-mono">
-            {cartQuantity}
-          </span>
+          <input
+            type="number"
+            min="0"
+            max={product.stockQuantity}
+            value={cartQuantity === 0 ? '0' : cartQuantity}
+            disabled={!product.inStock}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              setItemQuantity(product, isNaN(val) ? 0 : val);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-10 text-center text-xs font-black text-slate-800 font-mono bg-transparent outline-none focus:bg-emerald-50 rounded"
+            title="Cantidad a pedir"
+          />
           <button
             onClick={handleIncrement}
-            disabled={!product.inStock}
-            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold"
+            disabled={!product.inStock || cartQuantity >= product.stockQuantity}
+            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold cursor-pointer"
+            title={cartQuantity >= product.stockQuantity ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
           >
             <Plus className="w-3.5 h-3.5" />
           </button>

@@ -134,7 +134,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PRODUCTS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Hydrate createdAt if missing from previous cached state
+          return parsed.map((item: Product, index: number) => {
+            if (!item.createdAt) {
+              const original = PRODUCTS.find((p) => p.id === item.id || p.sku === item.sku);
+              const fallbackDate = new Date(Date.now() - index * 86400000 * 2).toISOString();
+              return { ...item, createdAt: original?.createdAt || fallbackDate };
+            }
+            return item;
+          });
+        }
       }
       return PRODUCTS;
     } catch {
@@ -148,6 +158,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('Could not save products to localStorage:', e);
     }
+  }, [products]);
+
+  // Sincronizar carrito cuando se actualizan precios o stock desde el catálogo
+  useEffect(() => {
+    setCart((prevCart) => {
+      let changed = false;
+      const updatedCart = prevCart
+        .map((item) => {
+          const liveProduct = products.find((p) => p.id === item.product.id);
+          if (!liveProduct) return item;
+          const newQty = Math.min(item.quantity, liveProduct.stockQuantity);
+          if (
+            liveProduct.priceUSD !== item.product.priceUSD ||
+            liveProduct.stockQuantity !== item.product.stockQuantity ||
+            liveProduct.inStock !== item.product.inStock ||
+            newQty !== item.quantity
+          ) {
+            changed = true;
+            return { product: liveProduct, quantity: newQty };
+          }
+          return item;
+        })
+        .filter((item) => item.quantity > 0 && item.product.inStock);
+      return changed ? updatedCart : prevCart;
+    });
   }, [products]);
 
   // Admin Session
@@ -336,16 +371,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const closeCartDrawer = () => setIsCartDrawerOpen(false);
 
   const addToCart = (product: Product, quantity: number = 1) => {
+    if (!product.inStock || product.stockQuantity <= 0) {
+      showToast('Producto sin stock disponible', 'warning');
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
+        if (existing.quantity >= product.stockQuantity) {
+          showToast(`Stock máximo alcanzado (${product.stockQuantity} un.)`, 'warning');
+          return prev;
+        }
+        const targetQty = Math.min(product.stockQuantity, existing.quantity + quantity);
         return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
+          item.product.id === product.id ? { ...item, quantity: targetQty } : item
         );
       }
-      return [...prev, { product, quantity: Math.max(1, quantity) }];
+      const initialQty = Math.min(product.stockQuantity, Math.max(1, quantity));
+      return [...prev, { product, quantity: initialQty }];
     });
 
     showToast(`Se agregó "${product.name.slice(0, 32)}..." al pedido.`, 'success');
@@ -357,9 +400,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
     setCart((prev) =>
-      prev.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
-      )
+      prev.map((item) => {
+        if (item.product.id !== productId) return item;
+        const maxStock = item.product.stockQuantity;
+        const safeQty = Math.min(maxStock, quantity);
+        if (quantity > maxStock) {
+          showToast(`Stock máximo alcanzado (${maxStock} un.)`, 'warning');
+        }
+        return { ...item, quantity: safeQty };
+      })
     );
   };
 
@@ -382,14 +431,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCart((prev) => prev.filter((i) => i.product.id !== product.id));
       return;
     }
+    const maxStock = product.stockQuantity;
+    const safeQty = Math.min(maxStock, quantity);
+    if (quantity > maxStock) {
+      showToast(`Stock máximo disponible para este artículo: ${maxStock} un.`, 'warning');
+    }
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
       if (existing) {
         return prev.map((i) =>
-          i.product.id === product.id ? { ...i, quantity } : i
+          i.product.id === product.id ? { ...i, quantity: safeQty } : i
         );
       }
-      return [...prev, { product, quantity }];
+      return [...prev, { product, quantity: safeQty }];
     });
   };
 
