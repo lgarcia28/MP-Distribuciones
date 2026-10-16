@@ -49,6 +49,7 @@ export const AdminPanel: React.FC = () => {
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [adjustmentPercentage, setAdjustmentPercentage] = useState<number>(5);
+  const [priceEditCurrency, setPriceEditCurrency] = useState<'USD' | 'ARS'>('USD');
 
   // File upload ref for CSV import
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +97,8 @@ export const AdminPanel: React.FC = () => {
       'category',
       'subcategory',
       'priceUSD',
+      'priceARS',
+      'priceCurrency',
       'stockQuantity',
       'inStock',
       'badge',
@@ -111,6 +114,8 @@ export const AdminPanel: React.FC = () => {
       `"${p.category}"`,
       `"${(p.subcategory || '').replace(/"/g, '""')}"`,
       p.priceUSD,
+      p.priceARS || Math.round(p.priceUSD * exchangeRate),
+      `"${p.priceCurrency || 'USD'}"`,
       p.stockQuantity,
       p.inStock ? 'true' : 'false',
       `"${p.badge || ''}"`,
@@ -180,6 +185,8 @@ export const AdminPanel: React.FC = () => {
         const skuIdx = headers.indexOf('sku');
         const nameIdx = headers.indexOf('name');
         const priceIdx = headers.indexOf('priceusd');
+        const priceArsIdx = headers.indexOf('pricears');
+        const priceCurrencyIdx = headers.indexOf('pricecurrency');
         const stockIdx = headers.indexOf('stockquantity');
 
         if (skuIdx === -1 || nameIdx === -1) {
@@ -199,10 +206,28 @@ export const AdminPanel: React.FC = () => {
           const rowName = cleanRow[nameIdx];
           if (!rowSku || !rowName) continue;
 
-          // Normalizar precio soportando coma decimal (ej. 12,50)
-          const rawPrice = priceIdx !== -1 ? cleanRow[priceIdx] || '' : '10';
-          const normalizedPrice = rawPrice.replace('$', '').replace(/\s/g, '').replace(',', '.');
-          const rowPrice = parseFloat(normalizedPrice) || 10;
+          // Parse currency & prices
+          const rawCurrency = priceCurrencyIdx !== -1 ? (cleanRow[priceCurrencyIdx] || '').toUpperCase() : '';
+          const rowPriceCurrency: 'USD' | 'ARS' = rawCurrency === 'ARS' ? 'ARS' : 'USD';
+
+          let rowPriceUSD = 10;
+          let rowPriceARS: number | undefined = undefined;
+
+          if (priceArsIdx !== -1 && cleanRow[priceArsIdx]) {
+            const rawArs = cleanRow[priceArsIdx].replace('$', '').replace(/\s/g, '').replace(',', '.');
+            rowPriceARS = Math.round(parseFloat(rawArs) || 0);
+          }
+
+          if (priceIdx !== -1 && cleanRow[priceIdx]) {
+            const rawPrice = cleanRow[priceIdx].replace('$', '').replace(/\s/g, '').replace(',', '.');
+            rowPriceUSD = parseFloat(rawPrice) || 10;
+          }
+
+          if (rowPriceCurrency === 'ARS' && rowPriceARS) {
+            rowPriceUSD = Number((rowPriceARS / exchangeRate).toFixed(2));
+          } else if (!rowPriceARS && rowPriceUSD) {
+            rowPriceARS = Math.round(rowPriceUSD * exchangeRate);
+          }
 
           const rawStock = stockIdx !== -1 ? cleanRow[stockIdx] || '0' : '0';
           const rowStock = Math.max(0, parseInt(rawStock, 10) || 0);
@@ -213,7 +238,9 @@ export const AdminPanel: React.FC = () => {
             updated[existingIndex] = {
               ...updated[existingIndex],
               name: rowName,
-              priceUSD: rowPrice,
+              priceUSD: rowPriceUSD,
+              priceARS: rowPriceARS,
+              priceCurrency: rowPriceCurrency,
               stockQuantity: rowStock,
               inStock: rowStock > 0,
             };
@@ -229,7 +256,9 @@ export const AdminPanel: React.FC = () => {
               subcategory: cleanRow[headers.indexOf('subcategory')] || '',
               description: cleanRow[headers.indexOf('description')] || rowName,
               specs: ['Garantía oficial MP Distribuciones'],
-              priceUSD: rowPrice,
+              priceUSD: rowPriceUSD,
+              priceARS: rowPriceARS,
+              priceCurrency: rowPriceCurrency,
               stockQuantity: rowStock,
               inStock: rowStock > 0,
               badge: (cleanRow[headers.indexOf('badge')] as any) || undefined,
@@ -567,7 +596,35 @@ export const AdminPanel: React.FC = () => {
                 <th className="p-3 w-32">SKU / Marca</th>
                 <th className="p-3">Nombre del Producto & Rubro</th>
                 <th className="p-3 w-40 text-center">Stock Actual</th>
-                <th className="p-3 w-44 text-right">Precio Mayorista (USD)</th>
+                <th className="p-3 w-48 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Precio ({priceEditCurrency})</span>
+                    <div className="inline-flex rounded bg-slate-200 p-0.5 text-[9px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setPriceEditCurrency('USD')}
+                        className={`px-1.5 py-0.2 rounded transition-all cursor-pointer ${
+                          priceEditCurrency === 'USD'
+                            ? 'bg-blue-600 text-white font-black'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        USD
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPriceEditCurrency('ARS')}
+                        className={`px-1.5 py-0.2 rounded transition-all cursor-pointer ${
+                          priceEditCurrency === 'ARS'
+                            ? 'bg-blue-600 text-white font-black'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        ARS
+                      </button>
+                    </div>
+                  </div>
+                </th>
                 <th className="p-3 w-28 text-center">Estado</th>
                 <th className="p-3 text-center w-24">Acciones</th>
               </tr>
@@ -654,22 +711,43 @@ export const AdminPanel: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Price USD (Inline Editable) */}
+                    {/* Price USD or ARS (Inline Editable) */}
                     <td className="p-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="text-slate-400 font-mono text-xs">u$s</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          value={p.priceUSD}
-                          onChange={(e) => updatePrice(p.id, parseFloat(e.target.value) || 0.01)}
-                          className="w-20 px-2 py-1 text-right font-mono font-black text-xs text-slate-900 rounded-lg bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white outline-none"
-                        />
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                        ≈ $ {Math.round(p.priceUSD * exchangeRate).toLocaleString('es-AR')} ARS
-                      </p>
+                      {priceEditCurrency === 'USD' ? (
+                        <div>
+                          <div className="flex items-center justify-end gap-1">
+                            <span className="text-slate-400 font-mono text-xs">u$s</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0.01"
+                              value={p.priceUSD}
+                              onChange={(e) => updatePrice(p.id, parseFloat(e.target.value) || 0.01, 'USD')}
+                              className="w-20 px-2 py-1 text-right font-mono font-black text-xs text-slate-900 rounded-lg bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white outline-none"
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            ≈ $ {(p.priceARS || Math.round(p.priceUSD * exchangeRate)).toLocaleString('es-AR')} ARS
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center justify-end gap-1">
+                            <span className="text-slate-400 font-mono text-xs">$</span>
+                            <input
+                              type="number"
+                              step="10"
+                              min="1"
+                              value={p.priceARS || Math.round(p.priceUSD * exchangeRate)}
+                              onChange={(e) => updatePrice(p.id, parseInt(e.target.value, 10) || 1, 'ARS')}
+                              className="w-24 px-2 py-1 text-right font-mono font-black text-xs text-slate-900 rounded-lg bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white outline-none"
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            ≈ u$s {p.priceUSD.toFixed(2)} USD
+                          </p>
+                        </div>
+                      )}
                     </td>
 
                     {/* Status Badge */}

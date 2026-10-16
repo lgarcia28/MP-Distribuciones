@@ -18,7 +18,6 @@ export const ProductDetailModal: React.FC = () => {
     closeProductDetail,
     currency,
     exchangeRate,
-    formatPrice,
     getItemQuantity,
     setItemQuantity,
   } = useApp();
@@ -30,10 +29,20 @@ export const ProductDetailModal: React.FC = () => {
   const product = selectedProduct;
   const inCart = getItemQuantity(product.id);
 
+  const unitPriceARS =
+    product.priceCurrency === 'ARS' && product.priceARS
+      ? product.priceARS
+      : Math.round(product.priceUSD * exchangeRate);
+
+  const mainPriceFormatted =
+    currency === 'USD'
+      ? `USD ${product.priceUSD.toFixed(2).replace('.', ',')}`
+      : `$ ${unitPriceARS.toLocaleString('es-AR')}`;
+
   const secondaryPriceText =
     currency === 'ARS'
       ? `(u$s ${product.priceUSD.toFixed(2)} USD)`
-      : `($ ${Math.round(product.priceUSD * exchangeRate).toLocaleString('es-AR')} ARS)`;
+      : `($ ${unitPriceARS.toLocaleString('es-AR')} ARS)`;
 
   const handleIncrement = () => setQuantity((q) => q + 1);
   const handleDecrement = () => setQuantity((q) => Math.max(1, q - 1));
@@ -161,7 +170,7 @@ export const ProductDetailModal: React.FC = () => {
                       Precio Mayorista
                     </span>
                     <div className="text-2xl sm:text-3xl font-black text-slate-900">
-                      {formatPrice(product.priceUSD)}
+                      {mainPriceFormatted}
                     </div>
                   </div>
                   <div className="text-right">

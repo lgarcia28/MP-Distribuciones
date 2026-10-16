@@ -1,15 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { CATEGORIES } from '../data/categories';
 import {
   Search,
   ShoppingCart,
-  ChevronDown,
   MapPin,
   Phone,
   Settings2,
   X,
-  Flame,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -28,7 +25,6 @@ export const Header: React.FC = () => {
     setSearchQuery,
     selectedCategory,
     setSelectedCategory,
-    setViewMode,
     isOutletOnly,
     setIsOutletOnly,
     showToast,
@@ -38,34 +34,7 @@ export const Header: React.FC = () => {
     setIsAdminView,
   } = useApp();
 
-  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const categoryMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close category dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (categoryMenuRef.current && !categoryMenuRef.current.contains(e.target as Node)) {
-        setIsCategoryMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleOutletClick = () => {
-    setIsOutletOnly(!isOutletOnly);
-    if (!isOutletOnly) {
-      showToast('Filtrando productos de OUTLET y Ofertas de gremio', 'info');
-    }
-  };
-
-  const handleChecklistClick = () => {
-    setViewMode('list');
-    setSelectedCategory('ALL');
-    setIsOutletOnly(false);
-    showToast('Cambiando a vista de Listado Completo / Checklist', 'info');
-  };
 
   const handleDownloadPriceList = () => {
     const headers = [
@@ -186,95 +155,13 @@ export const Header: React.FC = () => {
                   setSelectedCategory('ALL');
                   setIsOutletOnly(false);
                 }}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   selectedCategory === 'ALL' && !isOutletOnly
                     ? 'bg-white/20 text-white font-bold'
                     : 'text-blue-100 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 Inicio
-              </button>
-
-              {/* Categorías Dropdown */}
-              <div className="relative" ref={categoryMenuRef}>
-                <button
-                  onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${
-                    isCategoryMenuOpen || selectedCategory !== 'ALL'
-                      ? 'bg-white/20 text-white font-bold'
-                      : 'text-blue-100 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <span>Categorías</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCategoryMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {isCategoryMenuOpen && (
-                  <div className="absolute left-0 mt-2 w-72 max-h-96 overflow-y-auto rounded-xl bg-white text-slate-800 shadow-2xl border border-slate-200 p-2 z-50 animate-fadeIn text-xs">
-                    <div className="p-2 border-b border-slate-100 font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                      Seleccionar Rubro
-                    </div>
-                    <button
-                      onClick={() => {
-                        setSelectedCategory('ALL');
-                        setIsCategoryMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg font-semibold transition-colors flex items-center justify-between ${
-                        selectedCategory === 'ALL'
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <span>Todos los rubros</span>
-                      <span className="text-[10px] text-slate-400 font-normal">({products.length})</span>
-                    </button>
-                    {CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          setSelectedCategory(cat.id);
-                          setIsCategoryMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg font-medium transition-colors flex items-center justify-between ${
-                          selectedCategory === cat.id
-                            ? 'bg-blue-50 text-blue-600 font-bold'
-                            : 'hover:bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        <span className="truncate">{cat.shortName}</span>
-                        <span className="text-[10px] text-slate-400">
-                          {products.filter((p) => p.category === cat.id).length}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* CheckList (count) */}
-              <button
-                onClick={handleChecklistClick}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition-colors"
-                title="Ver modo checklist / planilla rápida"
-              >
-                <span>CheckList</span>
-                <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-white font-extrabold text-[10px]">
-                  {products.length}
-                </span>
-              </button>
-
-              {/* OUTLET Badge */}
-              <button
-                onClick={handleOutletClick}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-sm transition-all ${
-                  isOutletOnly
-                    ? 'bg-red-600 text-white ring-2 ring-white'
-                    : 'bg-red-500 hover:bg-red-600 text-white'
-                }`}
-                title="Ver artículos en liquidación y promociones especiales"
-              >
-                <Flame className="w-3.5 h-3.5 animate-pulse" />
-                <span>OUTLET 60%</span>
               </button>
             </nav>
           </div>

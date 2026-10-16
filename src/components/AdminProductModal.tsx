@@ -34,7 +34,8 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
   const [subcategory, setSubcategory] = useState('');
   const [description, setDescription] = useState('');
   const [specsText, setSpecsText] = useState('');
-  const [priceUSD, setPriceUSD] = useState<number>(10);
+  const [priceCurrency, setPriceCurrency] = useState<'USD' | 'ARS'>('USD');
+  const [priceInput, setPriceInput] = useState<number>(10);
   const [stockQuantity, setStockQuantity] = useState<number>(10);
   const [minWholesaleQty, setMinWholesaleQty] = useState<number>(1);
   const [badge, setBadge] = useState<'NUEVO' | 'DESTACADO' | 'OFERTA' | 'MÁS VENDIDO' | ''>('');
@@ -49,11 +50,17 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
       setSubcategory(productToEdit.subcategory || '');
       setDescription(productToEdit.description);
       setSpecsText(productToEdit.specs ? productToEdit.specs.join('\n') : '');
-      setPriceUSD(productToEdit.priceUSD);
       setStockQuantity(productToEdit.stockQuantity);
       setMinWholesaleQty(productToEdit.minWholesaleQty || 1);
       setBadge(productToEdit.badge || '');
       setImageUrl(productToEdit.imageUrl);
+      if (productToEdit.priceCurrency === 'ARS' && productToEdit.priceARS) {
+        setPriceCurrency('ARS');
+        setPriceInput(productToEdit.priceARS);
+      } else {
+        setPriceCurrency('USD');
+        setPriceInput(productToEdit.priceUSD);
+      }
     } else {
       // Defaults for new product
       const randomCode = Math.floor(1000 + Math.random() * 9000);
@@ -64,7 +71,8 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
       setSubcategory('');
       setDescription('');
       setSpecsText('');
-      setPriceUSD(10.0);
+      setPriceCurrency('USD');
+      setPriceInput(10.0);
       setStockQuantity(20);
       setMinWholesaleQty(1);
       setBadge('');
@@ -76,7 +84,8 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !sku.trim() || priceUSD <= 0) {
+    const numericPrice = Number(priceInput) || 0;
+    if (!name.trim() || !sku.trim() || numericPrice <= 0) {
       alert('Por favor complete el nombre, SKU y un precio válido.');
       return;
     }
@@ -86,6 +95,16 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
+    const finalPriceUSD =
+      priceCurrency === 'ARS'
+        ? Number((numericPrice / exchangeRate).toFixed(2))
+        : Number(numericPrice.toFixed(2));
+
+    const finalPriceARS =
+      priceCurrency === 'ARS'
+        ? Math.round(numericPrice)
+        : Math.round(numericPrice * exchangeRate);
+
     const productPayload = {
       sku: sku.trim(),
       name: name.trim(),
@@ -94,7 +113,9 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
       subcategory: subcategory.trim() || undefined,
       description: description.trim() || name.trim(),
       specs: specsArray.length > 0 ? specsArray : ['Garantía oficial MP Distribuciones'],
-      priceUSD: Number(priceUSD),
+      priceUSD: finalPriceUSD,
+      priceARS: finalPriceARS,
+      priceCurrency,
       inStock: stockQuantity > 0,
       stockQuantity: Number(stockQuantity),
       minWholesaleQty: Number(minWholesaleQty) || 1,
@@ -239,25 +260,68 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
 
           {/* Row 4: Pricing & Stock (Wholesale Heart) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-blue-50/70 border border-blue-200">
-            <div className="space-y-1">
-              <label className="font-bold text-blue-900 flex items-center gap-1">
-                <DollarSign className="w-3.5 h-3.5 text-blue-600" />
-                <span>Precio Unitario USD *</span>
-              </label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="font-bold text-blue-900 flex items-center gap-1">
+                  <DollarSign className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Precio ({priceCurrency}) *</span>
+                </label>
+                {/* Selector de moneda USD / ARS */}
+                <div className="flex items-center rounded-lg bg-blue-100 p-0.5 text-[10px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (priceCurrency !== 'USD') {
+                        setPriceCurrency('USD');
+                        setPriceInput(Number((priceInput / exchangeRate).toFixed(2)));
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                      priceCurrency === 'USD'
+                        ? 'bg-blue-600 text-white shadow-xs font-black'
+                        : 'text-blue-700 hover:text-blue-900'
+                    }`}
+                  >
+                    USD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (priceCurrency !== 'ARS') {
+                        setPriceCurrency('ARS');
+                        setPriceInput(Math.round(priceInput * exchangeRate));
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                      priceCurrency === 'ARS'
+                        ? 'bg-blue-600 text-white shadow-xs font-black'
+                        : 'text-blue-700 hover:text-blue-900'
+                    }`}
+                  >
+                    ARS
+                  </button>
+                </div>
+              </div>
+
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400">u$s</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400">
+                  {priceCurrency === 'USD' ? 'u$s' : '$'}
+                </span>
                 <input
                   type="number"
-                  step="0.01"
-                  min="0.01"
+                  step={priceCurrency === 'USD' ? '0.01' : '1'}
+                  min={priceCurrency === 'USD' ? '0.01' : '1'}
                   required
-                  value={priceUSD}
-                  onChange={(e) => setPriceUSD(parseFloat(e.target.value) || 0)}
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(parseFloat(e.target.value) || 0)}
                   className="w-full pl-9 pr-3 py-2 rounded-lg bg-white border border-slate-300 focus:border-blue-600 text-sm font-mono font-black text-slate-900 outline-none"
                 />
               </div>
               <p className="text-[10px] text-slate-500 font-mono">
-                ≈ $ {Math.round(priceUSD * exchangeRate).toLocaleString('es-AR')} ARS
+                {priceCurrency === 'USD'
+                  ? `≈ $ ${Math.round(priceInput * exchangeRate).toLocaleString('es-AR')} ARS`
+                  : `≈ u$s ${(priceInput / exchangeRate).toFixed(2)} USD`}
+                <span className="text-slate-400"> (T.C. ${exchangeRate})</span>
               </p>
             </div>
 

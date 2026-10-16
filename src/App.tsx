@@ -18,7 +18,6 @@ import { Footer } from './components/Footer';
 import {
   PackageSearch,
   MessageCircle,
-  ShoppingCart,
   ChevronRight,
   RefreshCw,
   Flame,
@@ -28,8 +27,6 @@ export const AppContent: React.FC = () => {
   const {
     products,
     isAdminView,
-    cartCount,
-    openCartDrawer,
     searchQuery,
     setSearchQuery,
     selectedCategory,
@@ -40,7 +37,6 @@ export const AppContent: React.FC = () => {
     viewMode,
     isOutletOnly,
     setIsOutletOnly,
-    exchangeRate,
   } = useApp();
 
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
@@ -258,25 +254,6 @@ export const AppContent: React.FC = () => {
           </div>
         </div>
       </main>
-
-      {/* Floating Side Order Tab (Desktop) */}
-      <aside className="fixed right-0 top-1/2 -translate-y-1/2 z-30 hidden lg:block">
-        <button
-          onClick={openCartDrawer}
-          className="bg-[#0055b8] hover:bg-blue-700 text-white py-4 px-2 rounded-l-xl shadow-xl flex flex-col items-center gap-2 transition-all cursor-pointer border-y border-l border-white/20"
-          title="Ver Pedido Mayorista"
-        >
-          <ShoppingCart className="w-5 h-5" />
-          <span className="text-[11px] font-black tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
-            USD REF: ${exchangeRate}
-          </span>
-          {cartCount > 0 && (
-            <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center">
-              {cartCount}
-            </span>
-          )}
-        </button>
-      </aside>
 
       {/* Floating WhatsApp Sales Button */}
       <a

@@ -39,7 +39,9 @@ export interface Product {
   subcategory?: string;
   description: string;
   specs: string[];
-  priceUSD: number; // Base wholesale price in USD
+  priceUSD: number; // Wholesale price in USD (canonical or converted)
+  priceCurrency?: 'USD' | 'ARS'; // Currency in which the price was set
+  priceARS?: number; // Price in ARS if set in pesos
   inStock: boolean;
   stockQuantity: number;
   badge?: 'NUEVO' | 'DESTACADO' | 'OFERTA' | 'MÁS VENDIDO';

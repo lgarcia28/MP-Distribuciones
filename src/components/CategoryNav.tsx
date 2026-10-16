@@ -76,93 +76,11 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ onOpenMobileFilters })
           </div>
         </div>
 
-        {/* Right Side: Sorting Controls (Precio, Alfabético, Fecha - Sin Stock) */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-xs justify-end">
-          <div className="flex items-center gap-1.5 text-slate-500 font-semibold">
+        {/* Right Side: Sorting Controls */}
+        <div className="flex items-center gap-2 sm:gap-2.5 text-xs justify-end">
+          <div className="flex items-center gap-1.5 text-slate-700 font-bold">
             <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden sm:inline">Ordenar:</span>
-          </div>
-
-          {/* Quick Clickable Links for Desktop */}
-          <div className="hidden xl:flex items-center gap-2 text-xs">
-            {/* Precio: Mayor y Menor */}
-            <button
-              onClick={() => setSortBy('price_desc')}
-              className={`transition-colors font-medium cursor-pointer ${
-                sortBy === 'price_desc'
-                  ? 'text-blue-700 font-black underline'
-                  : 'text-slate-600 hover:text-blue-700 hover:underline'
-              }`}
-            >
-              Mayor Precio
-            </button>
-
-            <span className="text-slate-300">|</span>
-
-            <button
-              onClick={() => setSortBy('price_asc')}
-              className={`transition-colors font-medium cursor-pointer ${
-                sortBy === 'price_asc'
-                  ? 'text-blue-700 font-black underline'
-                  : 'text-slate-600 hover:text-blue-700 hover:underline'
-              }`}
-            >
-              Menor Precio
-            </button>
-
-            <span className="text-slate-300">|</span>
-
-            {/* Alfabéticamente: A-Z */}
-            <button
-              onClick={() => setSortBy('name_asc')}
-              className={`transition-colors font-medium cursor-pointer ${
-                sortBy === 'name_asc'
-                  ? 'text-blue-700 font-black underline'
-                  : 'text-slate-600 hover:text-blue-700 hover:underline'
-              }`}
-            >
-              A - Z
-            </button>
-
-            <span className="text-slate-300">|</span>
-
-            <button
-              onClick={() => setSortBy('name_desc')}
-              className={`transition-colors font-medium cursor-pointer ${
-                sortBy === 'name_desc'
-                  ? 'text-blue-700 font-black underline'
-                  : 'text-slate-600 hover:text-blue-700 hover:underline'
-              }`}
-            >
-              Z - A
-            </button>
-
-            <span className="text-slate-300">|</span>
-
-            {/* Fecha: Más nuevo y Más viejo */}
-            <button
-              onClick={() => setSortBy('date_desc')}
-              className={`transition-colors font-medium cursor-pointer ${
-                sortBy === 'date_desc'
-                  ? 'text-blue-700 font-black underline'
-                  : 'text-slate-600 hover:text-blue-700 hover:underline'
-              }`}
-            >
-              Más Nuevo
-            </button>
-
-            <span className="text-slate-300">|</span>
-
-            <button
-              onClick={() => setSortBy('date_asc')}
-              className={`transition-colors font-medium cursor-pointer ${
-                sortBy === 'date_asc'
-                  ? 'text-blue-700 font-black underline'
-                  : 'text-slate-600 hover:text-blue-700 hover:underline'
-              }`}
-            >
-              Más Viejo
-            </button>
+            <span>Ordenar</span>
           </div>
 
           {/* Unified Select Dropdown for All Screen Sizes */}
@@ -170,7 +88,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({ onOpenMobileFilters })
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortByOption)}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs pl-3 pr-8 py-1.5 rounded-lg border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="appearance-none bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-xs pl-3 pr-8 py-1.5 rounded-lg border border-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-xs"
             >
               <option value="featured">⭐ Destacados</option>
               <optgroup label="💵 Por Precio">

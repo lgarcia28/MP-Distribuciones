@@ -32,10 +32,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   };
 
   // Price formatting
+  const unitPriceARS =
+    product.priceCurrency === 'ARS' && product.priceARS
+      ? product.priceARS
+      : Math.round(product.priceUSD * exchangeRate);
+
   const formattedPrice =
     currency === 'USD'
       ? `USD ${product.priceUSD.toFixed(2).replace('.', ',')}`
-      : `$ ${Math.round(product.priceUSD * exchangeRate).toLocaleString('es-AR')}`;
+      : `$ ${unitPriceARS.toLocaleString('es-AR')}`;
 
   const isSelectedInCart = cartQuantity > 0;
 

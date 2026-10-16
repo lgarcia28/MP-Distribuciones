@@ -22,7 +22,7 @@ interface AppContextType {
   updateProduct: (id: string, updatedData: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
   updateStock: (id: string, newStock: number) => void;
-  updatePrice: (id: string, newPriceUSD: number) => void;
+  updatePrice: (id: string, newPrice: number, priceCurrency?: 'USD' | 'ARS') => void;
   applyPercentagePriceAdjustment: (percentage: number) => void;
   bulkUpdateProducts: (updatedList: Product[]) => void;
   resetProductsToDefault: () => void;
@@ -252,10 +252,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const updatePrice = (id: string, newPriceUSD: number) => {
-    const safePrice = Math.max(0.01, newPriceUSD);
+  const updatePrice = (id: string, newPrice: number, priceCurrency: 'USD' | 'ARS' = 'USD') => {
+    const safePrice = Math.max(0.01, newPrice);
     setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, priceUSD: safePrice } : p))
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        if (priceCurrency === 'ARS') {
+          const safeARS = Math.round(safePrice);
+          return {
+            ...p,
+            priceARS: safeARS,
+            priceUSD: Number((safeARS / exchangeRate).toFixed(2)),
+            priceCurrency: 'ARS',
+          };
+        } else {
+          const safeUSD = Number(safePrice.toFixed(2));
+          return {
+            ...p,
+            priceUSD: safeUSD,
+            priceARS: Math.round(safeUSD * exchangeRate),
+            priceCurrency: 'USD',
+          };
+        }
+      })
     );
   };
 

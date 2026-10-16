@@ -31,15 +31,20 @@ export const ProductListRow: React.FC<ProductListRowProps> = ({ product }) => {
     }
   };
 
+  const unitPriceARS =
+    product.priceCurrency === 'ARS' && product.priceARS
+      ? product.priceARS
+      : Math.round(product.priceUSD * exchangeRate);
+
   const formattedPrice =
     currency === 'USD'
       ? `USD ${product.priceUSD.toFixed(2).replace('.', ',')}`
-      : `$ ${Math.round(product.priceUSD * exchangeRate).toLocaleString('es-AR')}`;
+      : `$ ${unitPriceARS.toLocaleString('es-AR')}`;
 
   const subtotalPrice =
     currency === 'USD'
       ? `USD ${(product.priceUSD * cartQuantity).toFixed(2).replace('.', ',')}`
-      : `$ ${Math.round(product.priceUSD * exchangeRate * cartQuantity).toLocaleString('es-AR')}`;
+      : `$ ${(unitPriceARS * cartQuantity).toLocaleString('es-AR')}`;
 
   const isSelected = cartQuantity > 0;
 
