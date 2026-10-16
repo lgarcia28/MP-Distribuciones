@@ -173,19 +173,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Products State & Persistence
   const [products, setProducts] = useState<Product[]>(() => {
+    const initialRate = Number(localStorage.getItem(LOCAL_STORAGE_KEY_EXCHANGE)) || 1350;
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PRODUCTS);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Hydrate createdAt if missing from previous cached state
+          // Hydrate createdAt, priceCurrency and priceARS if missing from previous cached state
           return parsed.map((item: Product, index: number) => {
-            if (!item.createdAt) {
-              const original = PRODUCTS.find((p) => p.id === item.id || p.sku === item.sku);
-              const fallbackDate = new Date(Date.now() - index * 86400000 * 2).toISOString();
-              return { ...item, createdAt: original?.createdAt || fallbackDate };
-            }
-            return item;
+            const original = PRODUCTS.find((p) => p.id === item.id || p.sku === item.sku);
+            const fallbackDate = new Date(Date.now() - index * 86400000 * 2).toISOString();
+            const createdAt = item.createdAt || original?.createdAt || fallbackDate;
+            const priceCurrency = item.priceCurrency || (item.priceARS && !item.priceUSD ? 'ARS' : 'USD');
+            const priceUSD = typeof item.priceUSD === 'number' && item.priceUSD > 0
+              ? item.priceUSD
+              : item.priceARS
+              ? Number((item.priceARS / initialRate).toFixed(2))
+              : 10;
+            const priceARS = typeof item.priceARS === 'number' && item.priceARS > 0
+              ? item.priceARS
+              : Math.round(priceUSD * initialRate);
+
+            return {
+              ...item,
+              createdAt,
+              priceCurrency,
+              priceUSD,
+              priceARS,
+            };
           });
         }
       }
@@ -324,10 +339,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const applyPercentagePriceAdjustment = (percentage: number) => {
     const factor = 1 + percentage / 100;
     setProducts((prev) =>
-      prev.map((p) => ({
-        ...p,
-        priceUSD: Number((p.priceUSD * factor).toFixed(2)),
-      }))
+      prev.map((p) => {
+        const newUSD = Number((p.priceUSD * factor).toFixed(2));
+        const newARS = p.priceARS
+          ? Math.round(p.priceARS * factor)
+          : Math.round(newUSD * exchangeRate);
+        return {
+          ...p,
+          priceUSD: newUSD,
+          priceARS: newARS,
+        };
+      })
     );
     showToast(
       `Precios actualizados un ${percentage > 0 ? '+' : ''}${percentage}% en todo el catálogo.`,

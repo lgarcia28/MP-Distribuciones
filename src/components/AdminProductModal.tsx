@@ -57,9 +57,9 @@ export const AdminProductModal: React.FC<AdminProductModalProps> = ({
       setMinWholesaleQty(productToEdit.minWholesaleQty || 1);
       setBadge(productToEdit.badge || '');
       setImageUrl(productToEdit.imageUrl);
-      if (productToEdit.priceCurrency === 'ARS' && productToEdit.priceARS) {
+      if (productToEdit.priceCurrency === 'ARS') {
         setPriceCurrency('ARS');
-        setPriceInput(productToEdit.priceARS);
+        setPriceInput(productToEdit.priceARS || Math.round(productToEdit.priceUSD * exchangeRate));
       } else {
         setPriceCurrency('USD');
         setPriceInput(productToEdit.priceUSD);

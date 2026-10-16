@@ -47,14 +47,14 @@ export const AdminPanel: React.FC = () => {
   // Search & Filter state for the table
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'out_of_stock' | 'outlet'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_stock' | 'out_of_stock' | 'outlet' | 'currency_ars' | 'currency_usd'>('all');
 
   // Modals state
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [adjustmentPercentage, setAdjustmentPercentage] = useState<number>(5);
-  const [priceEditCurrency, setPriceEditCurrency] = useState<'USD' | 'ARS'>('USD');
+  const [priceDisplayMode, setPriceDisplayMode] = useState<'AUTO' | 'ARS' | 'USD'>('AUTO');
 
   // File upload ref for CSV / XLSX import
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,10 +85,12 @@ export const AdminPanel: React.FC = () => {
       if (categoryFilter !== 'ALL' && p.category !== categoryFilter) {
         return false;
       }
-      // Status filter
+      // Status & Currency filter
       if (statusFilter === 'in_stock' && p.stockQuantity <= 0) return false;
       if (statusFilter === 'out_of_stock' && p.stockQuantity > 0) return false;
       if (statusFilter === 'outlet' && p.badge !== 'OFERTA' && p.badge !== 'MÁS VENDIDO') return false;
+      if (statusFilter === 'currency_ars' && p.priceCurrency !== 'ARS') return false;
+      if (statusFilter === 'currency_usd' && p.priceCurrency === 'ARS') return false;
 
       // Search term
       if (searchTerm.trim()) {
@@ -550,7 +552,7 @@ export const AdminPanel: React.FC = () => {
               </select>
 
               {/* Status pills */}
-              <div className="flex items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold">
+              <div className="flex flex-wrap items-center p-0.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold gap-0.5">
                 <button
                   onClick={() => setStatusFilter('all')}
                   className={`px-2.5 py-1 rounded-lg transition-colors ${
@@ -576,12 +578,22 @@ export const AdminPanel: React.FC = () => {
                   Agotados
                 </button>
                 <button
-                  onClick={() => setStatusFilter('outlet')}
+                  onClick={() => setStatusFilter('currency_ars')}
                   className={`px-2.5 py-1 rounded-lg transition-colors ${
-                    statusFilter === 'outlet' ? 'bg-white text-blue-700 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'
+                    statusFilter === 'currency_ars' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-emerald-700 hover:bg-emerald-50'
                   }`}
+                  title="Mostrar únicamente productos fijados en Pesos Argentinos ($)"
                 >
-                  Outlet / Ofertas
+                  En Pesos ($)
+                </button>
+                <button
+                  onClick={() => setStatusFilter('currency_usd')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                    statusFilter === 'currency_usd' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-blue-700 hover:bg-blue-50'
+                  }`}
+                  title="Mostrar únicamente productos fijados en Dólares (USD)"
+                >
+                  En Dólares (u$s)
                 </button>
               </div>
             </div>
@@ -607,31 +619,45 @@ export const AdminPanel: React.FC = () => {
                 <th className="p-3 w-32">SKU / Marca</th>
                 <th className="p-3">Nombre del Producto & Rubro</th>
                 <th className="p-3 w-40 text-center">Stock Actual</th>
-                <th className="p-3 w-48 text-right">
+                <th className="p-3 w-56 text-right">
                   <div className="flex items-center justify-end gap-1.5">
-                    <span>Precio ({priceEditCurrency})</span>
-                    <div className="inline-flex rounded bg-slate-200 p-0.5 text-[9px] font-bold">
+                    <span>Precio</span>
+                    <div className="inline-flex rounded-lg bg-slate-200 p-0.5 text-[9px] font-bold">
                       <button
                         type="button"
-                        onClick={() => setPriceEditCurrency('USD')}
-                        className={`px-1.5 py-0.2 rounded transition-all cursor-pointer ${
-                          priceEditCurrency === 'USD'
-                            ? 'bg-blue-600 text-white font-black'
+                        onClick={() => setPriceDisplayMode('AUTO')}
+                        className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                          priceDisplayMode === 'AUTO'
+                            ? 'bg-blue-600 text-white font-black shadow-xs'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
+                        title="Ver cada producto en su moneda guardada (Pesos o Dólares)"
                       >
-                        USD
+                        Auto
                       </button>
                       <button
                         type="button"
-                        onClick={() => setPriceEditCurrency('ARS')}
-                        className={`px-1.5 py-0.2 rounded transition-all cursor-pointer ${
-                          priceEditCurrency === 'ARS'
-                            ? 'bg-blue-600 text-white font-black'
+                        onClick={() => setPriceDisplayMode('ARS')}
+                        className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                          priceDisplayMode === 'ARS'
+                            ? 'bg-emerald-600 text-white font-black shadow-xs'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
+                        title="Ver todos en Pesos Argentinos"
                       >
-                        ARS
+                        ARS ($)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPriceDisplayMode('USD')}
+                        className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                          priceDisplayMode === 'USD'
+                            ? 'bg-blue-600 text-white font-black shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                        title="Ver todos en Dólares USD"
+                      >
+                        USD (u$s)
                       </button>
                     </div>
                   </div>
@@ -722,43 +748,100 @@ export const AdminPanel: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Price USD or ARS (Inline Editable) */}
+                    {/* Price USD or ARS (Inline Editable & Currency Toggle) */}
                     <td className="p-3 text-right">
-                      {priceEditCurrency === 'USD' ? (
-                        <div>
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="text-slate-400 font-mono text-xs">u$s</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0.01"
-                              value={p.priceUSD}
-                              onChange={(e) => updatePrice(p.id, parseFloat(e.target.value) || 0.01, 'USD')}
-                              className="w-20 px-2 py-1 text-right font-mono font-black text-xs text-slate-900 rounded-lg bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white outline-none"
-                            />
+                      {(() => {
+                        const isArs =
+                          priceDisplayMode === 'ARS'
+                            ? true
+                            : priceDisplayMode === 'USD'
+                            ? false
+                            : p.priceCurrency === 'ARS';
+
+                        const currentCurrency = p.priceCurrency || 'USD';
+
+                        return (
+                          <div className="space-y-1">
+                            {/* Base currency selector for this product */}
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-[10px] text-slate-400 font-semibold">Base:</span>
+                              <div className="inline-flex rounded-md bg-slate-100 border border-slate-200 p-0.5 text-[9px] font-bold">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updatePrice(
+                                      p.id,
+                                      p.priceARS || Math.round(p.priceUSD * exchangeRate),
+                                      'ARS'
+                                    )
+                                  }
+                                  className={`px-1.5 py-0.2 rounded transition-all cursor-pointer ${
+                                    currentCurrency === 'ARS'
+                                      ? 'bg-emerald-600 text-white font-black shadow-xs'
+                                      : 'text-slate-500 hover:text-slate-800'
+                                  }`}
+                                  title="Fijar moneda de este producto en Pesos ($)"
+                                >
+                                  $ ARS
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => updatePrice(p.id, p.priceUSD, 'USD')}
+                                  className={`px-1.5 py-0.2 rounded transition-all cursor-pointer ${
+                                    currentCurrency === 'USD'
+                                      ? 'bg-blue-600 text-white font-black shadow-xs'
+                                      : 'text-slate-500 hover:text-slate-800'
+                                  }`}
+                                  title="Fijar moneda de este producto en Dólares (USD)"
+                                >
+                                  u$s USD
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Editable price input */}
+                            {isArs ? (
+                              <div>
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-emerald-700 font-mono text-xs font-bold">$</span>
+                                  <input
+                                    type="number"
+                                    step="10"
+                                    min="1"
+                                    value={p.priceARS || Math.round(p.priceUSD * exchangeRate)}
+                                    onChange={(e) =>
+                                      updatePrice(p.id, parseInt(e.target.value, 10) || 1, 'ARS')
+                                    }
+                                    className="w-24 px-2 py-1 text-right font-mono font-black text-xs text-slate-900 rounded-lg bg-emerald-50/50 border border-emerald-300 focus:border-emerald-600 focus:bg-white outline-none"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                  ≈ u$s {p.priceUSD.toFixed(2)} USD
+                                </p>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-blue-700 font-mono text-xs font-bold">u$s</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    value={p.priceUSD}
+                                    onChange={(e) =>
+                                      updatePrice(p.id, parseFloat(e.target.value) || 0.01, 'USD')
+                                    }
+                                    className="w-20 px-2 py-1 text-right font-mono font-black text-xs text-slate-900 rounded-lg bg-blue-50/50 border border-blue-300 focus:border-blue-600 focus:bg-white outline-none"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                  ≈ $ {(p.priceARS || Math.round(p.priceUSD * exchangeRate)).toLocaleString('es-AR')} ARS
+                                </p>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                            ≈ $ {(p.priceARS || Math.round(p.priceUSD * exchangeRate)).toLocaleString('es-AR')} ARS
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="text-slate-400 font-mono text-xs">$</span>
-                            <input
-                              type="number"
-                              step="10"
-                              min="1"
-                              value={p.priceARS || Math.round(p.priceUSD * exchangeRate)}
-                              onChange={(e) => updatePrice(p.id, parseInt(e.target.value, 10) || 1, 'ARS')}
-                              className="w-24 px-2 py-1 text-right font-mono font-black text-xs text-slate-900 rounded-lg bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white outline-none"
-                            />
-                          </div>
-                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                            ≈ u$s {p.priceUSD.toFixed(2)} USD
-                          </p>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </td>
 
                     {/* Status Badge */}
