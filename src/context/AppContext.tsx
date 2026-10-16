@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Currency, Product, CartItem, User, SortByOption, ViewMode } from '../types';
+import { Currency, Product, CartItem, User, SortByOption, ViewMode, Order } from '../types';
 import { PRODUCTS } from '../data/products';
 
 interface Toast {
@@ -15,6 +15,9 @@ interface AppContextType {
   exchangeRate: number;
   setExchangeRate: (rate: number) => void;
   formatPrice: (priceUSD: number, customCurrency?: Currency) => string;
+  fetchBnaRate: () => Promise<number | null>;
+  isFetchingBnaRate: boolean;
+  lastBnaSyncDate?: string;
 
   // Products Management
   products: Product[];
@@ -46,6 +49,14 @@ interface AppContextType {
   authModalTab: 'login' | 'register';
   openAuthModal: (tab?: 'login' | 'register') => void;
   closeAuthModal: () => void;
+
+  // Order History
+  orders: Order[];
+  createOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'date' | 'status'>) => Order;
+  repeatOrder: (order: Order) => void;
+  isOrderHistoryModalOpen: boolean;
+  openOrderHistoryModal: () => void;
+  closeOrderHistoryModal: () => void;
 
   // Cart
   cart: CartItem[];
@@ -104,6 +115,7 @@ const LOCAL_STORAGE_KEY_CURRENCY = 'mp_distribuciones_currency_v1';
 const LOCAL_STORAGE_KEY_EXCHANGE = 'mp_distribuciones_exchange_rate_v1';
 const LOCAL_STORAGE_KEY_PRODUCTS = 'mp_distribuciones_products_v2';
 const LOCAL_STORAGE_KEY_ADMIN = 'mp_distribuciones_admin_logged_v1';
+const LOCAL_STORAGE_KEY_ORDERS = 'mp_distribuciones_orders_v1';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Currency State
@@ -127,6 +139,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExchangeRateState(safeRate);
     localStorage.setItem(LOCAL_STORAGE_KEY_EXCHANGE, safeRate.toString());
   };
+
+  // Banco Nación Official Dollar Auto-Sync
+  const [isFetchingBnaRate, setIsFetchingBnaRate] = useState<boolean>(false);
+  const [lastBnaSyncDate, setLastBnaSyncDate] = useState<string | undefined>();
+
+  const fetchBnaRate = async (): Promise<number | null> => {
+    setIsFetchingBnaRate(true);
+    try {
+      const res = await fetch('https://dolarapi.com/v1/dolares/oficial');
+      if (res.ok) {
+        const data = await res.json();
+        const venta = data.venta;
+        if (typeof venta === 'number' && venta > 0) {
+          setExchangeRateState(venta);
+          localStorage.setItem(LOCAL_STORAGE_KEY_EXCHANGE, venta.toString());
+          setLastBnaSyncDate(data.fechaActualizacion || new Date().toISOString());
+          return venta;
+        }
+      }
+      return null;
+    } catch (err) {
+      console.warn('[BNA Auto-Sync] Error al obtener cotización del Banco Nación, se mantiene cotización actual.', err);
+      return null;
+    } finally {
+      setIsFetchingBnaRate(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBnaRate();
+  }, []);
 
   // Products State & Persistence
   const [products, setProducts] = useState<Product[]>(() => {
@@ -487,6 +530,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Order History State & Persistence
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(orders));
+    } catch (e) {
+      console.warn('Error guardando pedidos en localStorage:', e);
+    }
+  }, [orders]);
+
+  const [isOrderHistoryModalOpen, setIsOrderHistoryModalOpen] = useState(false);
+  const openOrderHistoryModal = () => setIsOrderHistoryModalOpen(true);
+  const closeOrderHistoryModal = () => setIsOrderHistoryModalOpen(false);
+
+  const createOrder = (orderData: Omit<Order, 'id' | 'orderNumber' | 'date' | 'status'>): Order => {
+    const orderCount = orders.length + 1;
+    const orderNumber = `MP-${new Date().getFullYear()}-${orderCount.toString().padStart(4, '0')}`;
+    const newOrder: Order = {
+      ...orderData,
+      id: 'ord_' + Date.now() + Math.random().toString(36).substring(2, 6),
+      orderNumber,
+      date: new Date().toISOString(),
+      status: 'enviado',
+    };
+    setOrders((prev) => [newOrder, ...prev]);
+    return newOrder;
+  };
+
+  const repeatOrder = (order: Order) => {
+    let count = 0;
+    order.items.forEach((item) => {
+      const liveProduct = products.find((p) => p.id === item.product.id || p.sku === item.product.sku);
+      if (liveProduct && liveProduct.inStock) {
+        setItemQuantity(liveProduct, item.quantity);
+        count++;
+      }
+    });
+    setIsOrderHistoryModalOpen(false);
+    setIsCartDrawerOpen(true);
+    showToast(`Se cargaron los artículos del pedido #${order.orderNumber} a tu carrito.`, 'success');
+  };
+
   // Modals
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const openCheckoutModal = () => setIsCheckoutModalOpen(true);
@@ -526,6 +623,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         exchangeRate,
         setExchangeRate,
         formatPrice,
+        fetchBnaRate,
+        isFetchingBnaRate,
+        lastBnaSyncDate,
+        orders,
+        createOrder,
+        repeatOrder,
+        isOrderHistoryModalOpen,
+        openOrderHistoryModal,
+        closeOrderHistoryModal,
         products,
         addProduct,
         updateProduct,

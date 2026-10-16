@@ -82,3 +82,20 @@ export interface OrderCheckoutData {
   invoiceType: InvoiceType;
   notes?: string;
 }
+
+export interface Order {
+  id: string;
+  orderNumber: string;
+  userId?: string;
+  userBusinessName: string;
+  date: string; // ISO string
+  items: CartItem[];
+  totalUSD: number;
+  totalARS: number;
+  deliveryMethod: DeliveryMethod;
+  invoiceType: InvoiceType;
+  shippingAddress?: string;
+  notes?: string;
+  status: 'enviado' | 'en_preparacion' | 'completado';
+}
+

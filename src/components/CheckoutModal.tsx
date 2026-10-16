@@ -26,6 +26,7 @@ export const CheckoutModal: React.FC = () => {
     exchangeRate,
     clearCart,
     showToast,
+    createOrder,
   } = useApp();
 
   const [buyerName, setBuyerName] = useState(user?.businessName || '');
@@ -123,6 +124,19 @@ export const CheckoutModal: React.FC = () => {
     } catch {
       // ignore
     }
+
+    // Save order in history
+    createOrder({
+      userId: user?.id,
+      userBusinessName: buyerName,
+      items: [...cart],
+      totalUSD: cartTotalUSD,
+      totalARS: cartTotalARS,
+      deliveryMethod,
+      invoiceType,
+      shippingAddress: deliveryText,
+      notes,
+    });
 
     window.open(whatsappUrl, '_blank');
     clearCart();

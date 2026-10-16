@@ -13,6 +13,7 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { ExchangeRateModal } from './components/ExchangeRateModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminPanel } from './components/AdminPanel';
+import { OrderHistoryModal } from './components/OrderHistoryModal';
 import { ToastContainer } from './components/ToastContainer';
 import { Footer } from './components/Footer';
 import {
@@ -194,8 +195,8 @@ export const AppContent: React.FC = () => {
             {/* Catalog Content (Grid / List View) */}
             {filteredProducts.length > 0 ? (
               viewMode === 'grid' ? (
-                /* GALERIA DE FOTOS: Grid with responsive columns */
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                /* GALERIA DE FOTOS: Grid with responsive columns preventing cards from stretching */
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
                   {filteredProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
@@ -276,6 +277,7 @@ export const AppContent: React.FC = () => {
       <CheckoutModal />
       <ExchangeRateModal />
       <AuthModal />
+      <OrderHistoryModal />
       <AdminLoginModal />
       <ToastContainer />
     </div>

@@ -5,24 +5,22 @@ import {
   ShoppingCart,
   MapPin,
   Phone,
-  Settings2,
   X,
   ShieldCheck,
   ChevronDown,
   FileSpreadsheet,
   FileText,
+  History,
 } from 'lucide-react';
 import { exportPriceList } from '../utils/exportUtils';
 
 export const Header: React.FC = () => {
   const {
-    currency,
-    setCurrency,
     exchangeRate,
-    openExchangeRateModal,
     user,
     logout,
     openAuthModal,
+    openOrderHistoryModal,
     cartCount,
     openCartDrawer,
     searchQuery,
@@ -73,38 +71,13 @@ export const Header: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Currency Quick Reference */}
-            <button
-              onClick={openExchangeRateModal}
-              title="Click para ajustar tipo de cambio de referencia"
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-blue-900/60 hover:bg-blue-800 text-blue-200 text-[11px] border border-blue-700/50 transition-colors"
+            {/* Automatic Banco Nación Exchange Rate Indicator */}
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-blue-900/60 text-blue-200 text-[11px] border border-blue-700/50"
+              title="Cotización oficial Banco Nación sincronizada automáticamente"
             >
-              <Settings2 className="w-3 h-3 text-blue-300" />
-              <span>T.C. Ref: <strong>${exchangeRate.toLocaleString('es-AR')} ARS</strong></span>
-            </button>
-
-            {/* Currency Switcher Toggle */}
-            <div className="flex items-center rounded-lg bg-blue-950/80 p-0.5 border border-blue-800 text-[11px]">
-              <button
-                onClick={() => setCurrency('USD')}
-                className={`px-2 py-0.5 rounded font-bold transition-all ${
-                  currency === 'USD'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-blue-300 hover:text-white'
-                }`}
-              >
-                USD
-              </button>
-              <button
-                onClick={() => setCurrency('ARS')}
-                className={`px-2 py-0.5 rounded font-bold transition-all ${
-                  currency === 'ARS'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-blue-300 hover:text-white'
-                }`}
-              >
-                ARS
-              </button>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Dólar BNA Oficial: <strong>${exchangeRate.toLocaleString('es-AR')} ARS</strong></span>
             </div>
           </div>
         </div>
@@ -192,6 +165,24 @@ export const Header: React.FC = () => {
 
             <span className="text-blue-400">|</span>
 
+            {/* Order History Button (Historial) */}
+            <button
+              onClick={() => {
+                if (user) {
+                  openOrderHistoryModal();
+                } else {
+                  openAuthModal('login');
+                }
+              }}
+              className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer font-medium"
+              title="Ver historial de pedidos y repetir compras"
+            >
+              <History className="w-3.5 h-3.5 text-blue-300" />
+              <span>Historial</span>
+            </button>
+
+            <span className="text-blue-400">|</span>
+
             {/* Price List Export Dropdown (XLSX / CSV) */}
             <div className="relative inline-block" ref={priceListMenuRef}>
               <button
@@ -240,31 +231,13 @@ export const Header: React.FC = () => {
                 </div>
               )}
             </div>
-
-            <span className="text-blue-400">|</span>
-
-            {/* Admin / Owner Panel Button */}
-            <button
-              onClick={() => {
-                if (isAdminLoggedIn) {
-                  setIsAdminView(true);
-                } else {
-                  openAdminModal();
-                }
-              }}
-              className="flex items-center gap-1 font-bold text-amber-300 hover:text-white transition-colors cursor-pointer"
-              title="Panel de gestión de stock y precios exclusivo para el dueño"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span>Panel Dueño</span>
-            </button>
           </div>
 
-          {/* Right Action: "Ver Pedido" Button (Matching the Reference Screenshot) */}
-          <div className="flex items-center gap-3">
+          {/* Right Actions: "Ver Pedido" and "Panel Dueño" (Far Right) */}
+          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
             <button
               onClick={openCartDrawer}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all active:scale-95"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Ver Pedido</span>
@@ -273,6 +246,22 @@ export const Header: React.FC = () => {
                   {cartCount}
                 </span>
               )}
+            </button>
+
+            {/* Panel Dueño (Far Right Position) */}
+            <button
+              onClick={() => {
+                if (isAdminLoggedIn) {
+                  setIsAdminView(true);
+                } else {
+                  openAdminModal();
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-300/40 font-bold text-amber-300 hover:text-white transition-all cursor-pointer shadow-xs"
+              title="Panel de gestión de stock y precios exclusivo para el dueño"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>Panel Dueño</span>
             </button>
           </div>
         </div>

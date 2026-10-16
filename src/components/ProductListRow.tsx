@@ -1,7 +1,7 @@
 import React from 'react';
 import { Product } from '../types';
 import { useApp } from '../context/AppContext';
-import { Plus, Minus, Eye } from 'lucide-react';
+import { Plus, Minus, Eye, Lock } from 'lucide-react';
 
 interface ProductListRowProps {
   product: Product;
@@ -9,11 +9,12 @@ interface ProductListRowProps {
 
 export const ProductListRow: React.FC<ProductListRowProps> = ({ product }) => {
   const {
-    currency,
     exchangeRate,
     openProductDetail,
     getItemQuantity,
     setItemQuantity,
+    user,
+    openAuthModal,
   } = useApp();
 
   const cartQuantity = getItemQuantity(product.id);
@@ -31,20 +32,22 @@ export const ProductListRow: React.FC<ProductListRowProps> = ({ product }) => {
     }
   };
 
+  // Price formatting strictly based on owner's chosen product currency
+  const isUSD = product.priceCurrency === 'USD';
   const unitPriceARS =
     product.priceCurrency === 'ARS' && product.priceARS
       ? product.priceARS
       : Math.round(product.priceUSD * exchangeRate);
 
-  const formattedPrice =
-    currency === 'USD'
-      ? `USD ${product.priceUSD.toFixed(2).replace('.', ',')}`
-      : `$ ${unitPriceARS.toLocaleString('es-AR')}`;
+  const formattedPrice = isUSD
+    ? `u$s ${product.priceUSD.toFixed(2)}`
+    : `$ ${unitPriceARS.toLocaleString('es-AR')}`;
 
-  const subtotalPrice =
-    currency === 'USD'
-      ? `USD ${(product.priceUSD * cartQuantity).toFixed(2).replace('.', ',')}`
-      : `$ ${(unitPriceARS * cartQuantity).toLocaleString('es-AR')}`;
+  const rawUnitPrice = isUSD ? product.priceUSD : unitPriceARS;
+
+  const subtotalPrice = isUSD
+    ? `u$s ${(rawUnitPrice * cartQuantity).toFixed(2)}`
+    : `$ ${(rawUnitPrice * cartQuantity).toLocaleString('es-AR')}`;
 
   const isSelected = cartQuantity > 0;
 
@@ -96,59 +99,90 @@ export const ProductListRow: React.FC<ProductListRowProps> = ({ product }) => {
 
       {/* Stock */}
       <td className="p-2 sm:p-3 text-xs text-center whitespace-nowrap">
-        <span
-          className={`font-semibold ${
-            product.inStock ? 'text-slate-700' : 'text-red-500'
-          }`}
-        >
-          {product.stockQuantity} un.
-        </span>
+        {user ? (
+          <span
+            className={`font-semibold ${
+              product.inStock ? 'text-slate-700' : 'text-red-500'
+            }`}
+          >
+            {product.stockQuantity} un.
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+            <Lock className="w-3 h-3 text-slate-400" /> Privado
+          </span>
+        )}
       </td>
 
       {/* Unit Price */}
       <td className="p-2 sm:p-3 text-xs sm:text-sm font-black text-slate-900 whitespace-nowrap text-right">
-        {formattedPrice}
+        {user ? (
+          formattedPrice
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              openAuthModal('login');
+            }}
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline"
+            title="Iniciar sesión para ver precios mayoristas"
+          >
+            <Lock className="w-3 h-3" /> Ver precio
+          </button>
+        )}
       </td>
 
       {/* Inline Stepper */}
       <td className="p-2 sm:p-3 text-center whitespace-nowrap">
-        <div className="inline-flex items-center rounded-lg border border-emerald-400 bg-white p-0.5">
+        {user ? (
+          <div className="inline-flex items-center rounded-lg border border-emerald-400 bg-white p-0.5">
+            <button
+              onClick={handleDecrement}
+              disabled={cartQuantity === 0}
+              className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold cursor-pointer"
+              title="Disminuir cantidad"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+            <input
+              type="number"
+              min="0"
+              max={product.stockQuantity}
+              value={cartQuantity === 0 ? '0' : cartQuantity}
+              disabled={!product.inStock}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                setItemQuantity(product, isNaN(val) ? 0 : val);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-10 text-center text-xs font-black text-slate-800 font-mono bg-transparent outline-none focus:bg-emerald-50 rounded"
+              title="Cantidad a pedir"
+            />
+            <button
+              onClick={handleIncrement}
+              disabled={!product.inStock || cartQuantity >= product.stockQuantity}
+              className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold cursor-pointer"
+              title={cartQuantity >= product.stockQuantity ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
           <button
-            onClick={handleDecrement}
-            disabled={cartQuantity === 0}
-            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold cursor-pointer"
-            title="Disminuir cantidad"
-          >
-            <Minus className="w-3.5 h-3.5" />
-          </button>
-          <input
-            type="number"
-            min="0"
-            max={product.stockQuantity}
-            value={cartQuantity === 0 ? '0' : cartQuantity}
-            disabled={!product.inStock}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
-              setItemQuantity(product, isNaN(val) ? 0 : val);
+            onClick={(e) => {
+              e.stopPropagation();
+              openAuthModal('login');
             }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-10 text-center text-xs font-black text-slate-800 font-mono bg-transparent outline-none focus:bg-emerald-50 rounded"
-            title="Cantidad a pedir"
-          />
-          <button
-            onClick={handleIncrement}
-            disabled={!product.inStock || cartQuantity >= product.stockQuantity}
-            className="w-6 h-6 flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition-colors font-bold cursor-pointer"
-            title={cartQuantity >= product.stockQuantity ? 'Stock máximo alcanzado' : 'Aumentar cantidad'}
+            className="px-2.5 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" />
+            Ingresar
           </button>
-        </div>
+        )}
       </td>
 
       {/* Subtotal */}
       <td className="p-2 sm:p-3 text-xs font-bold text-slate-700 whitespace-nowrap text-right hidden sm:table-cell">
-        {cartQuantity > 0 ? (
+        {user && cartQuantity > 0 ? (
           <span className="text-emerald-700 font-black">{subtotalPrice}</span>
         ) : (
           <span className="text-slate-300">-</span>

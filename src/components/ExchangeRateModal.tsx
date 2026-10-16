@@ -4,6 +4,8 @@ import {
   X,
   DollarSign,
   Info,
+  RefreshCw,
+  Landmark,
 } from 'lucide-react';
 
 export const ExchangeRateModal: React.FC = () => {
@@ -13,11 +15,23 @@ export const ExchangeRateModal: React.FC = () => {
     exchangeRate,
     setExchangeRate,
     showToast,
+    fetchBnaRate,
+    isFetchingBnaRate,
+    lastBnaSyncDate,
   } = useApp();
 
   const [customRate, setCustomRate] = useState<string>(exchangeRate.toString());
 
   if (!isExchangeRateModalOpen) return null;
+
+  const handleSyncBna = async () => {
+    const rate = await fetchBnaRate();
+    if (rate) {
+      setCustomRate(rate.toString());
+      setExchangeRate(rate);
+      showToast(`Cotización actualizada a $${rate.toLocaleString('es-AR')} según Banco Nación Oficial`, 'success');
+    }
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +98,28 @@ export const ExchangeRateModal: React.FC = () => {
                 ARS
               </span>
             </div>
+          </div>
+
+          {/* Banco Nación Auto-sync */}
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Landmark className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-slate-800">Dólar Banco Nación Oficial</p>
+                <p className="text-[10px] text-slate-500">
+                  {lastBnaSyncDate ? `Sincronizado: ${lastBnaSyncDate}` : 'Tipo de cambio venta oficial'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={isFetchingBnaRate}
+              onClick={handleSyncBna}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isFetchingBnaRate ? 'animate-spin' : ''}`} />
+              <span>{isFetchingBnaRate ? 'Consultando...' : 'Sincronizar'}</span>
+            </button>
           </div>
 
           {/* Quick presets */}
