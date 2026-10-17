@@ -937,6 +937,12 @@ export const AdminPanel: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Developer Credit */}
+        <div className="pt-6 pb-2 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
+          <span>Desarrollado por</span>
+          <span className="text-slate-600 font-bold">Shurian Labs</span>
+        </div>
       </main>
 
       {/* Product Creation / Edit Modal */}

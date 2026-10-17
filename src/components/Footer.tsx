@@ -149,6 +149,14 @@ export const Footer: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Developer Credit */}
+        <div className="pt-4 border-t border-white/5 text-center text-[11px] text-blue-300/80 flex items-center justify-center gap-1.5">
+          <span>Desarrollado por</span>
+          <span className="text-white font-bold tracking-wide hover:text-blue-200 transition-colors">
+            Shurian Labs
+          </span>
+        </div>
       </div>
     </footer>
   );
