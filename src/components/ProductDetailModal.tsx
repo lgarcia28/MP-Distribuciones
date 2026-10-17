@@ -124,15 +124,15 @@ export const ProductDetailModal: React.FC = () => {
               {/* Stock Status */}
               <div className="mt-3">
                 {user ? (
-                  product.inStock ? (
+                  product.inStock && product.stockQuantity > 0 ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 text-xs font-bold">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      En Stock Mayorista ({product.stockQuantity} un. disponibles)
+                      Disponible para entrega inmediata
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
                       <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                      Sin Stock momentáneo
+                      Agotado momentáneamente
                     </span>
                   )
                 ) : (

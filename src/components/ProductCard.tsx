@@ -112,10 +112,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {/* Stock & Price info */}
         {user ? (
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-[11px] text-slate-500">
-              <span>
-                Stock: <strong className={product.inStock ? 'text-slate-700' : 'text-red-500'}>{product.stockQuantity}</strong>
-              </span>
+            <div className="flex items-center justify-between text-[11px]">
+              {product.inStock && product.stockQuantity > 0 ? (
+                <span className="font-bold text-emerald-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Disponible
+                </span>
+              ) : (
+                <span className="font-bold text-red-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                  Agotado
+                </span>
+              )}
               <span className="text-[10px] text-slate-400 font-mono">
                 SKU: {product.sku}
               </span>

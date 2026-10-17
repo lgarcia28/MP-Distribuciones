@@ -201,7 +201,7 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
           >
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Solo en Stock</span>
+              <span>Solo Disponibles</span>
             </div>
             <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full">
               {inStockCount}

@@ -100,13 +100,17 @@ export const ProductListRow: React.FC<ProductListRowProps> = ({ product }) => {
       {/* Stock */}
       <td className="p-2 sm:p-3 text-xs text-center whitespace-nowrap">
         {user ? (
-          <span
-            className={`font-semibold ${
-              product.inStock ? 'text-slate-700' : 'text-red-500'
-            }`}
-          >
-            {product.stockQuantity} un.
-          </span>
+          product.inStock && product.stockQuantity > 0 ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Disponible
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-600 border border-red-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+              Agotado
+            </span>
+          )
         ) : (
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
             <Lock className="w-3 h-3 text-slate-400" /> Privado

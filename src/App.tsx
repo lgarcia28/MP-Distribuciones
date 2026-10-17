@@ -111,6 +111,14 @@ export const AppContent: React.FC = () => {
         break;
     }
 
+    // Regla de catálogo: Los productos disponibles van primero y los agotados siempre abajo de todo
+    list.sort((a, b) => {
+      const aAvailable = Boolean(a.inStock && a.stockQuantity > 0);
+      const bAvailable = Boolean(b.inStock && b.stockQuantity > 0);
+      if (aAvailable === bAvailable) return 0;
+      return aAvailable ? -1 : 1;
+    });
+
     return list;
   }, [products, selectedCategory, stockFilter, searchQuery, sortBy, isOutletOnly]);
 
