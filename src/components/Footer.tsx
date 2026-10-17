@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { setSelectedCategory, user, openAuthModal, isAdminLoggedIn, openAdminModal, setIsAdminView } = useApp();
+  const { setSelectedCategory, user, openAuthModal } = useApp();
 
   return (
     <footer className="w-full bg-[#07245b] border-t border-blue-900 pt-10 pb-8 px-4 text-blue-100 text-xs">
@@ -141,21 +141,10 @@ export const Footer: React.FC = () => {
               Plataforma B2B para Distribuidores y Locales.
             </span>
             <span>•</span>
-            <button
-              onClick={() => (isAdminLoggedIn ? setIsAdminView(true) : openAdminModal())}
-              className="text-amber-300 hover:text-white underline font-semibold transition-colors cursor-pointer"
-            >
-              Acceso Panel Dueño
-            </button>
+            <span className="text-slate-300 flex items-center gap-1.5">
+              Desarrollado por <strong className="text-white font-bold tracking-wide">Shurian Labs</strong>
+            </span>
           </div>
-        </div>
-
-        {/* Developer Credit */}
-        <div className="pt-4 border-t border-white/5 text-center text-[11px] text-blue-300/80 flex items-center justify-center gap-1.5">
-          <span>Desarrollado por</span>
-          <span className="text-white font-bold tracking-wide hover:text-blue-200 transition-colors">
-            Shurian Labs
-          </span>
         </div>
       </div>
     </footer>
