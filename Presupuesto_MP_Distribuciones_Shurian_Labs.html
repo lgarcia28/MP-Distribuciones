@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presupuesto Oficial - MP Distribuciones | Shurian Labs</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+    :root {
+      --primary: #0b2545;
+      --primary-light: #134074;
+      --accent: #0077b6;
+      --accent-soft: #e0f2fe;
+      --emerald: #059669;
+      --emerald-soft: #ecfdf5;
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --slate-900: #0f172a;
+      --slate-700: #334155;
+      --slate-500: #64748b;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--slate-700);
+      background-color: #f8fafc;
+      line-height: 1.55;
+      font-size: 13.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 850px;
+      margin: 24px auto;
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+      padding: 48px 56px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Top decorative tech bar */
+    .page::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: linear-gradient(90deg, #0b2545 0%, #0077b6 50%, #00d4b2 100%);
+    }
+
+    /* Header / Letterhead */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 24px;
+      border-bottom: 1.5px solid var(--slate-200);
+      margin-bottom: 28px;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #0b2545 0%, #134074 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      box-shadow: 0 4px 12px rgba(11, 37, 69, 0.25);
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--slate-900);
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-name span {
+      color: var(--accent);
+    }
+
+    .brand-tagline {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--slate-500);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .doc-meta {
+      text-align: right;
+    }
+
+    .doc-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--slate-100);
+      border: 1px solid var(--slate-200);
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+
+    .doc-date {
+      font-size: 12px;
+      color: var(--slate-500);
+      font-weight: 500;
+    }
+
+    /* Client Info Card */
+    .client-card {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 28px;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 16px;
+    }
+
+    .client-card h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--slate-500);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .client-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--slate-900);
+    }
+
+    .client-subtitle {
+      font-size: 12.5px;
+      color: var(--slate-700);
+      margin-top: 2px;
+    }
+
+    /* Section Headings */
+    .section-title {
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 28px;
+      margin-bottom: 14px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--slate-200);
+    }
+
+    .section-title::before {
+      content: "";
+      width: 4px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: var(--slate-700);
+    }
+
+    /* Feature Grid */
+    .feature-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .feature-item {
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 8px;
+      padding: 12px 14px;
+      transition: all 0.2s ease;
+    }
+
+    .feature-item strong {
+      display: block;
+      color: var(--slate-900);
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .feature-item p {
+      margin: 0;
+      font-size: 12px;
+      color: var(--slate-500);
+      line-height: 1.45;
+    }
+
+    /* Pricing Box */
+    .pricing-container {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .price-card {
+      border-radius: 12px;
+      padding: 22px;
+      position: relative;
+      border: 1.5px solid var(--slate-200);
+      background: #ffffff;
+    }
+
+    .price-card.featured {
+      border-color: var(--emerald);
+      background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+      box-shadow: 0 8px 20px rgba(5, 150, 105, 0.08);
+    }
+
+    .badge-discount {
+      position: absolute;
+      top: -10px;
+      right: 18px;
+      background: var(--emerald);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .price-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--slate-500);
+    }
+
+    .price-amount {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--slate-900);
+      margin: 8px 0 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .price-amount.highlight {
+      color: var(--emerald);
+    }
+
+    .price-desc {
+      font-size: 11.5px;
+      color: var(--slate-500);
+      line-height: 1.4;
+    }
+
+    /* Alert / Notice box */
+    .notice-box {
+      background: var(--slate-50);
+      border-left: 3.5px solid var(--accent);
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 18px 0;
+      font-size: 12px;
+      color: var(--slate-700);
+    }
+
+    .notice-box strong {
+      color: var(--slate-900);
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 20px;
+      font-size: 12.5px;
+    }
+
+    th {
+      background: var(--slate-100);
+      color: var(--slate-900);
+      font-weight: 700;
+      text-align: left;
+      padding: 8px 12px;
+      border: 1px solid var(--slate-200);
+    }
+
+    td {
+      padding: 9px 12px;
+      border: 1px solid var(--slate-200);
+      vertical-align: top;
+    }
+
+    /* Sign Footer */
+    .sign-section {
+      margin-top: 36px;
+      padding-top: 20px;
+      border-top: 1.5px solid var(--slate-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .sign-brand strong {
+      display: block;
+      font-size: 14px;
+      color: var(--slate-900);
+      font-weight: 800;
+    }
+
+    .sign-brand span {
+      font-size: 11.5px;
+      color: var(--slate-500);
+    }
+
+    .print-btn-bar {
+      max-width: 850px;
+      margin: 16px auto 0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .btn-action {
+      background: var(--primary);
+      color: #ffffff;
+      padding: 9px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 12.5px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .btn-action:hover {
+      background: var(--primary-light);
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+      .page {
+        margin: 0;
+        padding: 32px 40px;
+        border: none;
+        box-shadow: none;
+      }
+      .print-btn-bar {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="print-btn-bar">
+    <button class="btn-action" onclick="window.print()">
+      🖨️ Imprimir / Guardar en PDF
+    </button>
+  </div>
+
+  <div class="page">
+    <!-- Header with Shurian Labs Letterhead -->
+    <header class="header">
+      <div class="brand-block">
+        <div class="brand-logo">SL</div>
+        <div>
+          <div class="brand-name">SHURIAN <span>LABS</span></div>
+          <div class="brand-tagline">Desarrollo de Software & Soluciones B2B</div>
+        </div>
+      </div>
+      <div class="doc-meta">
+        <div class="doc-badge">PRESUPUESTO #PRE-2026-MP01</div>
+        <div class="doc-date">Rosario, Santa Fe — 17 de Octubre de 2026</div>
+        <div class="doc-date" style="font-size: 11px; color: #059669; font-weight: 600; margin-top: 3px;">Validez: 15 días corridos</div>
+      </div>
+    </header>
+
+    <!-- Client Info -->
+    <div class="client-card">
+      <div>
+        <h3>Cliente / Empresa Solicitante</h3>
+        <div class="client-title">MP Distribuciones</div>
+        <div class="client-subtitle">Distribuidora Mayorista de Informática, Conectividad y Telefonía</div>
+        <div class="client-subtitle" style="font-size: 12px; color: var(--slate-500); margin-top: 2px;">San Nicolás 2277, Rosario, Santa Fe</div>
+      </div>
+      <div>
+        <h3>Proyecto</h3>
+        <div class="client-title" style="font-size: 14.5px;">Plataforma Web B2B & Catálogo en Tiempo Real</div>
+        <div class="client-subtitle">Integración Cloud PostgreSQL + Sincronización Móvil</div>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="section-title">1. Resumen Ejecutivo del Proyecto</div>
+    <p>
+      Implementación llave en mano de la plataforma web de ventas mayoristas para <strong>MP Distribuciones</strong>. El sistema permite a clientes comerciales recorrer el catálogo, filtrar por rubros técnicos y armar pedidos de gran volumen con derivación directa por WhatsApp. Al mismo tiempo, la distribuidora gestiona precios (en pesos o dólares), cotizaciones automáticas y disponibilidad en vivo desde computadoras o celulares.
+    </p>
+
+    <!-- Core Features Grid -->
+    <div class="section-title">2. Alcance y Funcionalidades Incluidas</div>
+    <div class="feature-list">
+      <div class="feature-item">
+        <strong>🔒 Privacidad Mayorista B2B Estricta</strong>
+        <p>Los visitantes públicos exploran el catálogo técnico pero <em>no ven precios ni disponibilidad</em> hasta iniciar sesión con su cuenta comercial (CUIT/Razón Social).</p>
+      </div>
+
+      <div class="feature-item">
+        <strong>📦 Disponibilidad y Ordenamiento Inteligente</strong>
+        <p>No se exhiben números de stock al cliente. Se indica claramente <strong>"Disponible"</strong> o <strong>"Agotado"</strong>, ordenando siempre los artículos disponibles primero y los agotados al final del catálogo.</p>
+      </div>
+
+      <div class="feature-item">
+        <strong>💵 Bimonetariedad Dinámica (USD / ARS)</strong>
+        <p>Cada producto puede configurarse en Dólares o en Pesos. La plataforma se vincula en vivo con el <strong>dólar oficial del Banco de la Nación Argentina (BNA)</strong> para conversiones precisas.</p>
+      </div>
+
+      <div class="feature-item">
+        <strong>📲 Cierre Directo por WhatsApp & Historial</strong>
+        <p>Generación automática del pedido numerado (remito digital) con desglose de ítems, transporte y tipo de factura. Los clientes pueden <strong>repetir compras anteriores</strong> con 1 clic.</p>
+      </div>
+
+      <div class="feature-item">
+        <strong>⚡ Sincronización en Vivo Multidispositivo</strong>
+        <p>Base de datos en la nube con tecnología WebSockets: los cambios de precios o altas hechas desde el celular del depósito se reflejan instantáneamente en las PCs del mostrador.</p>
+      </div>
+
+      <div class="feature-item">
+        <strong>📊 Carga Masiva y Exportación Excel / CSV</strong>
+        <p>Importación y exportación de listas de precios completas compatibles con Excel. Ajuste porcentual masivo (ej: +5%) con un solo clic.</p>
+      </div>
+    </div>
+
+    <!-- Cloud Hosting & Database Terms -->
+    <div class="section-title">3. Alojamiento Web & Base de Datos Cloud (Supabase)</div>
+    <p>
+      El sistema se entrega conectado a la nube con arquitectura de alto rendimiento. Para optimizar los costos de la distribuidora, se estructura bajo el siguiente esquema:
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 28%;">Modalidad</th>
+          <th>Detalle de Servicio</th>
+          <th style="width: 25%;">Costo Mensual</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Plan Base Cloud (Incluido)</strong></td>
+          <td>
+            Alojamiento frontend global + Base de datos Supabase PostgreSQL (Plan Gratuito). Soporta con holgura miles de visitas mensuales y hasta 100.000 artículos.
+            <div style="font-size: 11px; color: var(--amber); margin-top: 4px; font-weight: 600;">
+              ⚠️ Condición técnica de Supabase: si pasan 7 días consecutivos sin ninguna visita ni consulta en la web, la base entra en pausa preventiva y se reactiva con un clic desde el panel.
+            </div>
+          </td>
+          <td><strong style="color: var(--emerald); font-size: 13px;">$0 / mes</strong><br><span style="font-size: 11px; color: var(--slate-500);">Sin costos fijos</span></td>
+        </tr>
+        <tr>
+          <td><strong>Plan Continuo 24/7 (Opcional)</strong></td>
+          <td>
+            Upgrade a Supabase Pro para operaciones ininterrumpidas. Elimina cualquier pausa por inactividad y añade backups diarios automatizados de toda la base de datos.
+          </td>
+          <td><strong style="color: var(--slate-900);">Abono mensual</strong><br><span style="font-size: 11px; color: var(--slate-500);">(A cargo del cliente si lo requiere)</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Economic Proposal -->
+    <div class="section-title">4. Propuesta Económica & Condiciones Comerciales</div>
+    <div class="pricing-container">
+      <div class="price-card">
+        <div class="price-title">Precio de Lista / Financiado</div>
+        <div class="price-amount">$ 1.500.000</div>
+        <div class="price-desc">
+          Valor final de desarrollo, diseño a medida, configuración de catálogo e integración de base de datos relacional.
+        </div>
+      </div>
+
+      <div class="price-card featured">
+        <div class="badge-discount">Bonificación Especial</div>
+        <div class="price-title" style="color: var(--emerald);">Pago Contado / Transferencia</div>
+        <div class="price-amount highlight">$ 1.250.000</div>
+        <div class="price-desc" style="color: var(--slate-700);">
+          <strong>Descuento de $250.000 aplicado.</strong> Pago del 100% al finalizar la entrega del sistema funcionando a entera conformidad.
+        </div>
+      </div>
+    </div>
+
+    <div class="notice-box">
+      <strong>Condición de Confianza Shurian Labs:</strong> <u>No se solicita dinero de anticipo</u>. La plataforma se abona en su totalidad una vez que la página esté 100% finalizada, probada y vinculada a la base de datos oficial.
+    </div>
+
+    <!-- Deliverables & Warranty -->
+    <div class="section-title">5. Garantía y Plazos</div>
+    <p>
+      • <strong>Plazo de entrega y puesta en marcha:</strong> 48 a 72 horas hábiles tras la aceptación del presupuesto.<br>
+      • <strong>Capacitación incluida:</strong> Explicación operativa del Panel de Dueño (carga de fotos con celular y manejo de listas Excel).<br>
+      • <strong>Garantía Técnica:</strong> 60 días corridos de soporte técnico post-entrega por cualquier desperfecto o ajuste de código.
+    </p>
+
+    <!-- Signature Block -->
+    <footer class="sign-section">
+      <div class="sign-brand">
+        <strong>SHURIAN LABS</strong>
+        <span>Software Engineering & Cloud Architecture</span><br>
+        <span style="font-size: 11px; color: var(--slate-400);">Rosario, Santa Fe, Argentina</span>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 11px; color: var(--slate-400); margin-bottom: 4px;">Firma y Conformidad de Desarrollo</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--primary);">
+          SHURIAN LABS • B2B SYSTEMS
+        </div>
+      </div>
+    </footer>
+  </div>
+
+</body>
+</html>
