@@ -142,7 +142,15 @@ export const Footer: React.FC = () => {
             </span>
             <span>•</span>
             <span className="text-slate-300 flex items-center gap-1.5">
-              Desarrollado por <strong className="text-white font-bold tracking-wide">Shurian Labs</strong>
+              Desarrollado por{' '}
+              <a
+                href="https://www.shurianlabs.com.ar/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white hover:text-blue-300 font-bold tracking-wide transition-colors underline underline-offset-4"
+              >
+                Shurian Labs
+              </a>
             </span>
           </div>
         </div>

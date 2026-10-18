@@ -941,7 +941,14 @@ export const AdminPanel: React.FC = () => {
         {/* Developer Credit */}
         <div className="pt-6 pb-2 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
           <span>Desarrollado por</span>
-          <span className="text-slate-600 font-bold">Shurian Labs</span>
+          <a
+            href="https://www.shurianlabs.com.ar/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-600 hover:text-mp-primary font-bold transition-colors underline underline-offset-2"
+          >
+            Shurian Labs
+          </a>
         </div>
       </main>
 
